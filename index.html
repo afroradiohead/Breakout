@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Breakout</title>
+    <link href='http://fonts.googleapis.com/css?family=Poiret+One' rel='stylesheet' type='text/css'>
+    <style type="text/css">
+    html {
+        background-color: #123;
+        text-align: center;
+        font-family: 'Poiret One', cursive;
+        color: #FFF;
+
+        /* PREVENT TEXT HIGHLIGHTING SITE-WIDE */
+         -webkit-touch-callout: none;
+         -webkit-user-select: none;
+         -moz-user-select: none;
+         -ms-user-select: none;
+         user-select: none;
+    }
+    * {
+        margin: 0;
+        padding: 0;
+    }
+    h1 {
+        cursor: default;
+        font-size: 48px;
+        margin-bottom: 28px;
+    }
+    main {
+        background-color: #345;
+        /*border: 1px solid #002;*/
+        box-shadow: 0 0 35px #002;
+        margin: 0px auto 0 auto;
+        padding-top: 60px;
+        padding-bottom: 50px;
+        width: 900px;
+        border-bottom-left-radius: 10px;
+        border-bottom-right-radius: 10px;
+    }
+    main p {
+        font-size: 24px;
+    }
+    canvas {
+        vertical-align: top; /* Removes gap between canvases */
+    }
+    a {
+        color: #BBB;
+        text-decoration: none;
+    }
+    a:hover {
+        color: #FFF;
+    }
+    #muteButton {
+        cursor: pointer;
+        margin: 60px auto 5px auto;
+        width: 45px;
+    }
+    #aboutButton {
+        margin: 130px auto 0 auto;
+        width: 90px;
+        color: #123;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 28px;
+        background-color: #FFF;
+    }
+    #aboutButton:hover {
+        background-color: #DDD;
+        color: #000;
+    }
+    footer {
+        bottom: 0;
+        margin: 60px auto 0 auto;
+        padding-bottom: 15px;
+        width: 480px;
+        font-size: 20px;
+    }
+    </style>
+    <script src="main.js"></script>
+</head>
+<body>
+    <audio id="blipSound"><source src="res/sounds/blip.wav"></source></audio>
+    <audio id="bloopSound"><source src="res/sounds/bloop.wav"></source></audio>
+    <audio id="dieSound"><source src="res/sounds/die.wav"></source></audio>
+
+    <main>
+        <h1>Breakout</h1>
+        <canvas id="infoCanvas" width="720" height="80" style="border-top-left-radius: 15px; border-top-right-radius: 15px"></canvas>
+        <canvas id="gameCanvas" width="720" height="480" onmousemove="Mouse.update(event)" onmousedown="Mouse.down(event)" onmouseup="Mouse.up(event)">Sorry, your browser does not support canvases :(</canvas>
+        <div style="margin-top: 15px;">
+            <input id="volumeSlider" type="range" style="display: block; margin-left: 35px;" onchange="Sound.changeVolume()"/>
+            <span style="font-size: 22px; float: left; margin-left: 68px;">volume</span>
+        </div>
+        <!-- <div id="player"><div id="volume"></div></div>  -->
+        <!-- <div id="muteButton" class="button" onmousedown="Sound.toggleMute();get('volumeImg').src=(get('volumeImg').src.indexOf('res/mute.png')>-1?'res/louder.png':'res/mute.png'); Sound.play(Sound.blip);"><img id="volumeImg" src="res/mute.png" draggable="false"/></div> -->
+        <div id="aboutButton" class="button" onmousedown="get('aboutSection').style.display=(get('aboutSection').style.display=='none'?'initial':'none')">About</div>
+        <div id="aboutSection" style="display: none">
+            <p>This is a simple implementation of Breakout, made by AJ Weeks in August 2015.</p>
+            <p>You can view the source at <a href="http://github.com/ajweeks/breakout/">github.com/ajweeks/breakout</a></p>
+            <p>Play more of my games at <a href="http://ajweeks.github.io/games">ajweeks.github.io/games</a></p>
+        </div>
+    </main>
+
+    <footer>
+        <p>Copyright AJ Weeks 2015</p>
+    </footer>
+</body>
+</html>

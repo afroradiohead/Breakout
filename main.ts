@@ -6,6 +6,7 @@ function get(what: string): HTMLElement {
 class Game {
     static SIZE: { w: number, h: number }; // size of gameCanvas
     static iSIZE: { w: number, h: number }; // size of infoCanvas
+    static canvas: HTMLCanvasElement;
     static context: CanvasRenderingContext2D; // context for the gameCanvas
     static infoContext: CanvasRenderingContext2D; // context for the infoCanvas
     static level: Level;
@@ -15,9 +16,10 @@ class Game {
     static tickLength: number;
 
     static init() {
-        Game.context = (<HTMLCanvasElement>get('gameCanvas')).getContext('2d');
+        Game.canvas = <HTMLCanvasElement>get('gameCanvas');
+        Game.context = Game.canvas.getContext('2d');
         Game.infoContext = (<HTMLCanvasElement>get('infoCanvas')).getContext('2d');
-        Game.SIZE = { w: Game.context.canvas.width, h: Game.context.canvas.height };
+        Game.SIZE = { w: Game.canvas.width, h: Game.canvas.height };
         Game.iSIZE = { w: Game.infoContext.canvas.width, h: Game.infoContext.canvas.height };
 
         Game.level = new Level();
@@ -78,19 +80,23 @@ class Level {
     xo: number;
     yo: number;
 
+    static width: number = 6; // how many blocks wide the field is
+    static height: number = 8; // how many blocks tall the field is
+
     player: Paddle;
-    ball: Ball;
+    balls: Ball[];
 
     ballstill: boolean = true; // Is true at the start of the game, and after the player loses a life. Gets set to false on mouse down.
     deathcount: number = 0;
     static gamestates = { playing: -1, lost: 0, won: 1 };
     gamestate: number;
 
-    heartImg;
+    heartImg: HTMLImageElement;
 
     constructor() {
         this.player = new Paddle();
-        this.ball = new Ball();
+        this.balls = new Array<Ball>(1);
+        this.balls[0] = new Ball();
 
         this.xo = 70; // keep these constant for now
         this.yo = 25;
@@ -101,33 +107,35 @@ class Level {
         this.reset();
     }
 
-    getType(i: number, pattern?: number): number {
+    getColour(i: number, pattern?: number): number {
         if (!pattern) pattern = 6;
         switch (pattern) {
             case 0: // checker board
-                return (i % 2 - Math.floor(i / 6) % 2) === 0 ? 1 : 2;
+                return (i % 2 - Math.floor(i / Level.width) % 2) === 0 ? 1 : 2;
             case 1: // rainbow columns
-                return i % 6 + 2;
+                return i % Level.width + 2;
             case 2: // rainbow rows
-                return Math.floor(i / 6) + 2;
+                return Math.floor(i / Level.width) + 2;
             case 3: // rainbow rows (flipped)
-                return 7 - Math.floor(i / 6) + 2;
+                return 7 - Math.floor(i / Level.width) + 2;
             case 4: // rainbow diagonal
-                return (Math.floor(i / 6) + i % 6) % 8 + 2;
+                return (Math.floor(i / Level.width) + i % Level.width) % 8 + 2;
             case 5: // rainbow diagonal (flipped)
-                return (Math.floor(i / 6) + (8 - i % 6)) % 8 + 2;
+                return (Math.floor(i / Level.width) + (8 - i % Level.width)) % 8 + 2;
             case 6:
                 return Math.floor(Math.random() * 8) + 2;
             default:
-                console.error("invalid number passed to Level.getType: ", pattern);
-                return i % 6 + 1;
+                console.error("invalid number passed to Level.getColour: ", pattern);
+                return i % Level.width + 1;
         }
     }
 
     update() {
         if (this.gamestate === Level.gamestates.playing) {
             this.player.update();
-            this.ball.update(this.player);
+            for (var i = 0; i < this.balls.length; i++) {
+                this.balls[i].update(this.player);
+            }
 
             if (this.checkBoardWon()) {
                 this.deathcount--;
@@ -143,13 +151,16 @@ class Level {
 
     checkBoardWon(): boolean {
         for (var i in this.blocks) {
-            if (this.blocks[i].type !== 0) return false;
+            if (this.blocks[i].colour !== 0) return false;
         }
         return true;
     }
 
     die() { // TODO rename this: it gets called whenever the ball goes off the bottom of the screen
-        this.ball.reset();
+        var i;
+
+        this.balls = new Array<Ball>(1);
+        this.balls[0] = new Ball();
         this.player.reset();
         this.ballstill = true;
         this.deathcount++;
@@ -159,16 +170,31 @@ class Level {
 
     }
 
+    destroySquare(xp: number, yp: number, ball: Ball) { // destroys a 3x3 square (bomb tile)
+        Sound.play(Sound.boom);
+        var x = (xp - this.xo) / 100;
+        var y = (yp - this.yo) / 35;
+        for (var yy = Math.max(y - 1, 0); yy <= Math.min(y + 1, Level.height - 1); yy++) {
+            for (var xx = Math.max(x - 1, 0); xx <= Math.min(x + 1, Level.width - 1); xx++) {
+                if (this.blocks[xx + yy * Level.width].colour === 0) continue;
+                this.blocks[xx + yy * Level.width].destroy(ball);
+            }
+        }
+    }
+
     reset() {
+        var i;
+
         this.gamestate = Level.gamestates.playing;
         this.deathcount = 0;
         this.ballstill = true;
+        this.balls = new Array<Ball>(1);
+        this.balls[0] = new Ball();
         this.player.reset();
-        this.ball.reset();
 
-        this.blocks = new Array(48);
-        for (var i = 0; i < this.blocks.length; i++) {
-            this.blocks[i] = new Block((i % 6) * 100 + this.xo, Math.floor(i / 6) * 35 + this.yo, this.getType(i, 3));
+        this.blocks = new Array(Level.width * Level.height);
+        for (i = 0; i < this.blocks.length; i++) {
+            this.blocks[i] = new Block((i % Level.width) * 100 + this.xo, Math.floor(i / Level.width) * 35 + this.yo, this.getColour(i, 3));
         }
     }
 
@@ -176,34 +202,44 @@ class Level {
         var i;
 
         this.player.render();
-        this.ball.render();
+        for (i = 0; i < this.balls.length; i++) {
+            this.balls[i].render();
+        }
 
         for (i in this.blocks) {
-            if (this.blocks[i].type === 0) continue;
+            if (this.blocks[i].colour === 0) continue;
             else this.blocks[i].render();
         }
 
-        switch (this.gamestate) {
-            case Level.gamestates.playing:
-                break;
-            case Level.gamestates.lost:
-            case Level.gamestates.won:
-                Game.context.fillStyle = "#124";
-                Game.context.fillRect(Game.SIZE.w / 2 - 110, 122, 220, 45);
-                Game.context.fillRect(Game.SIZE.w / 2 - 80, 222, 160, 35);
-                Game.context.fillRect(Game.SIZE.w / 2 - 90, 278, 180, 30);
-                Game.context.fillStyle = "white";
-                Game.context.font = "36px Poiret One";
-                var msg = "Game Over!";
-                Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 150);
-                Game.context.font = "28px Poiret One";
-                msg = "You " + (this.gamestate === Level.gamestates.won ? "Won!" : "Lost!");
-                Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 200);
-                Game.context.font = "20px Poiret One";
-                if (Game.lastTick % 800 > 400) Game.context.fillStyle = "grey";
-                msg = "Click to restart";
-                Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 275);
-                break;
+        if (this.gamestate === Level.gamestates.lost || this.gamestate === Level.gamestates.won) {
+            Game.context.fillStyle = "#123";
+            Game.context.fillRect(Game.SIZE.w / 2 - 110, 112, 220, 100);
+            Game.context.fillRect(Game.SIZE.w / 2 - 80, 252, 160, 30);
+
+            Game.context.strokeStyle = "#EEF";
+            Game.context.lineWidth = 2;
+            Game.context.strokeRect(Game.SIZE.w / 2 - 112, 110, 224, 104);
+            Game.context.strokeRect(Game.SIZE.w / 2 - 82, 250, 164, 34);
+
+            Game.context.fillStyle = "white";
+            Game.context.font = "36px Poiret One";
+            var msg = "Game Over!";
+            Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 150);
+            Game.context.font = "28px Poiret One";
+
+            msg = "You " + (this.gamestate === Level.gamestates.won ? "Won!" : "Lost!");
+            Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 200);
+            Game.context.font = "20px Poiret One";
+
+            if (Game.lastTick % 800 > 400) Game.context.fillStyle = "grey";
+            msg = "Click to restart";
+            Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 275);
+        } else if (this.ballstill) {
+            if (Game.lastTick % 1000 > 500) Game.context.fillStyle = "grey";
+            else Game.context.fillStyle = "white";
+            Game.context.font = "30px Poiret One";
+            var msg = "Click to begin";
+            Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 380);
         }
 
         for (i = 0; i < 3 - this.deathcount; i++) {
@@ -220,42 +256,89 @@ class Block {
     x: number;
     y: number;
 
-    static images = Array<HTMLImageElement>();
-    type: number;
+    static block_images = Array<HTMLImageElement>();
+    colour: number; // an index in Block.block_images array
+
+
+    static powerups = ["", "bomb", "bigger_paddle", "slice_ball", "extra_ball", "extra_life"];
+    static powerup_images = Array<HTMLImageElement>();
+    powerup: number;
 
     static loadImages() {
-        Block.images = new Array(10);
-        Block.images[0] = null;
-        Block.images[1] = new Image();
-        Block.images[1].src = "res/block_grey.png";
-        Block.images[2] = new Image();
-        Block.images[2].src = "res/block_red.png";
-        Block.images[3] = new Image();
-        Block.images[3].src = "res/block_orange.png";
-        Block.images[4] = new Image();
-        Block.images[4].src = "res/block_yellow.png";
-        Block.images[5] = new Image();
-        Block.images[5].src = "res/block_green.png";
-        Block.images[6] = new Image();
-        Block.images[6].src = "res/block_blue.png";
-        Block.images[7] = new Image();
-        Block.images[7].src = "res/block_darkblue.png";
-        Block.images[8] = new Image();
-        Block.images[8].src = "res/block_purple.png";
-        Block.images[9] = new Image();
-        Block.images[9].src = "res/block_pink.png";
+        Block.block_images = new Array(10);
+        Block.block_images[0] = null;
+        Block.block_images[1] = new Image();
+        Block.block_images[1].src = "res/blocks/grey.png";
+        Block.block_images[2] = new Image();
+        Block.block_images[2].src = "res/blocks/red.png";
+        Block.block_images[3] = new Image();
+        Block.block_images[3].src = "res/blocks/orange.png";
+        Block.block_images[4] = new Image();
+        Block.block_images[4].src = "res/blocks/yellow.png";
+        Block.block_images[5] = new Image();
+        Block.block_images[5].src = "res/blocks/green.png";
+        Block.block_images[6] = new Image();
+        Block.block_images[6].src = "res/blocks/blue.png";
+        Block.block_images[7] = new Image();
+        Block.block_images[7].src = "res/blocks/darkblue.png";
+        Block.block_images[8] = new Image();
+        Block.block_images[8].src = "res/blocks/purple.png";
+        Block.block_images[9] = new Image();
+        Block.block_images[9].src = "res/blocks/pink.png";
+
+        Block.powerup_images[0] = null;
+        Block.powerup_images[1] = new Image();
+        Block.powerup_images[1].src = "res/powerups/bomb.png";
+        Block.powerup_images[2] = new Image();
+        Block.powerup_images[2].src = "res/powerups/longer_paddle.png";
+        Block.powerup_images[3] = new Image();
+        Block.powerup_images[3].src = "res/powerups/slicing_ball.png";
+        Block.powerup_images[4] = new Image();
+        Block.powerup_images[4].src = "res/powerups/add_ball.png";
+        Block.powerup_images[5] = new Image();
+        Block.powerup_images[5].src = "res/powerups/add_heart.png";
     }
 
-    constructor(x: number, y: number, type: number) {
+    constructor(x: number, y: number, colour: number) {
         this.x = x;
         this.y = y;
-        this.type = type;
+        this.colour = colour;
+        this.powerup = Math.floor(Math.random() * 20);
+        if (this.powerup > Block.powerups.length - 1) {
+            this.powerup = 0;
+        }
+    }
+
+    destroy(ball: Ball) {
+        if (this.colour === 0) return;
+        this.colour = 0;
+        switch (Block.powerups[this.powerup]) {
+            case "":
+                break;
+            case "bomb":
+                Game.level.destroySquare(this.x, this.y, ball);
+                break;
+            case "bigger_paddle":
+                Game.level.player.biggerTimer = 300;
+                break;
+            case "slice_ball":
+                ball.slices = 180;
+                break;
+            case "extra_ball":
+                Game.level.balls.push(new Ball());
+                Game.level.balls[Game.level.balls.length - 1].shoot();
+                break;
+            case "extra_life":
+                Game.level.deathcount--;
+                break;
+        }
     }
 
     render() {
-        // Game.context.fillStyle = Game.level.colours[this.type];
-        // Game.context.fillRect(this.x, this.y, Block.width, Block.height);
-        Game.context.drawImage(Block.images[this.type], this.x, this.y);
+        Game.context.drawImage(Block.block_images[this.colour], this.x, this.y);
+        if (this.powerup !== 0) {
+            Game.context.drawImage(Block.powerup_images[this.powerup], this.x + Block.width / 2 - 7, this.y + 3);
+        }
     }
 
 }
@@ -267,7 +350,8 @@ class Paddle {
     width: number;
     height: number;
     maxv: number;
-    img;
+    biggerTimer: number = 0;
+    img: HTMLImageElement;
 
     constructor() {
         this.reset();
@@ -282,16 +366,23 @@ class Paddle {
         this.width = 180;
         this.height = 25;
         this.maxv = 25;
+        this.biggerTimer = 0;
     }
 
     update() {
-        if (Game.level.ballstill && Mouse.ldown) {
-            Game.level.ballstill = false;
-            Game.level.ball.yv = -7;
-            do {
-                Game.level.ball.xv = Math.floor(Math.random() * 10) - 5;
-            } while (Game.level.ball.xv >= -1 && Game.level.ball.xv <= 1);
+        this.biggerTimer--;
+        if (this.biggerTimer > 0) {
+            if (this.biggerTimer < 100) {
+                this.width = 180 + this.biggerTimer;
+            } else {
+                this.width = 280;
+            }
+        } else {
+            this.width = 180;
+        }
 
+        if (Game.level.ballstill && Mouse.ldown) {
+            Game.level.balls[0].shoot();
             return;
         }
         if (Game.level.ballstill) return;
@@ -302,9 +393,7 @@ class Paddle {
     }
 
     render() {
-        // Game.context.fillStyle = "#457";
-        // Game.context.fillRect(this.x, this.y, this.width, this.height);
-        Game.context.drawImage(this.img, this.x, this.y);
+        Game.context.drawImage(this.img, this.x, this.y, this.width, this.height);
     }
 
 }
@@ -315,14 +404,20 @@ class Ball {
     y: number;
     xv: number;
     yv: number;
+    maxXv: number = 8;
     r: number;
-    img;
+    img: HTMLImageElement;
+    img_slicing: HTMLImageElement;
+    slices: number = 0;
 
     constructor() {
         this.reset();
 
         this.img = new Image();
         this.img.src = "res/ball.png";
+
+        this.img_slicing = new Image();
+        this.img_slicing.src = "res/ball_slicing.png";
     }
 
     reset() {
@@ -337,12 +432,16 @@ class Ball {
         this.x += this.xv;
         this.y += this.yv;
 
+        this.slices--;
+
         // check for colisions with player paddle
         if (this.x + this.r > player.x && this.x - this.r < player.x + player.width && this.y + this.r > player.y && this.y - this.r < player.y + player.height) {
             Sound.play(Sound.blip);
             this.yv = -this.yv;
             this.y = player.y - this.r;
             this.xv += ((this.x - player.x - player.width / 2) / 100) * 5;
+            if (this.xv > this.maxXv) this.xv = this.maxXv;
+            if (this.xv < -this.maxXv) this.xv = -this.maxXv;
             return;
         }
 
@@ -363,6 +462,10 @@ class Ball {
             this.y = this.r;
         }
         if (this.y > Game.SIZE.h) {
+            if (Game.level.balls.length > 1) {
+                Game.level.balls.splice(Game.level.balls.indexOf(this), 1);
+                return;
+            }
             Sound.play(Sound.die);
             Game.level.die();
             return;
@@ -372,6 +475,9 @@ class Ball {
         var c = this.collides();
         if (c !== -1) {
             Sound.play(Sound.bloop);
+            if (this.slices > 0) {
+                return;
+            }
 
             if (this.x > Game.level.blocks[c].x + Block.width) {
                 this.xv = Math.abs(this.xv);
@@ -391,17 +497,30 @@ class Ball {
     collides(): number {
         for (var i in Game.level.blocks) {
             var b = Game.level.blocks[i];
-            if (b.type === 0) continue;
+            if (b.colour === 0) continue;
             if (this.x + this.r > b.x && this.x - this.r < b.x + Block.width && this.y + this.r > b.y && this.y - this.r < b.y + Block.height) {
-                Game.level.blocks[i].type = 0;
+                Game.level.blocks[i].destroy(this);
                 return i;
             }
         }
         return -1;
     }
 
+    shoot() { // shoot off the player's paddle
+        Game.level.ballstill = false;
+        this.yv = -7;
+        do {
+            this.xv = Math.floor(Math.random() * 10) - 5;
+        } while (this.xv >= -1 && this.xv <= 1);
+
+    }
+
     render() {
-        Game.context.drawImage(this.img, this.x - this.r, this.y - this.r);
+        if (this.slices < 80 && this.slices % 20 < 10) { // blinking effect when slicing effect is about to wear off
+            Game.context.drawImage(this.img, this.x - this.r, this.y - this.r);
+        } else {
+            Game.context.drawImage(this.img_slicing, this.x - this.r, this.y - this.r);
+        }
     }
 
 }
@@ -414,8 +533,8 @@ class Mouse {
     static rdown: boolean = false;
 
     static update(event: MouseEvent) {
-        Mouse.x = event.clientX - get('gameCanvas').getBoundingClientRect().left;
-        Mouse.y = event.clientY - get('gameCanvas').getBoundingClientRect().top;
+        Mouse.x = event.clientX - Game.canvas.getBoundingClientRect().left;
+        Mouse.y = event.clientY - Game.canvas.getBoundingClientRect().top;
     }
 
     static down(event: MouseEvent) {
@@ -432,30 +551,44 @@ class Mouse {
 
 class Sound {
 
-    static blip = 'blipSound';
-    static bloop = 'bloopSound';
-    static die = 'dieSound';
+    static blip;
+    static bloop;
+    static die;
+    static boom;
+    static life;
 
     static muted = false;
     static volume = 0.5;
+    static volumeSlider;
+
+    static init() {
+        Sound.blip = <HTMLAudioElement>get('blipSound');
+        Sound.bloop = <HTMLAudioElement>get('bloopSound');
+        Sound.die = <HTMLAudioElement>get('dieSound');
+        Sound.boom = <HTMLAudioElement>get('boomSound');
+        Sound.life = <HTMLAudioElement>get('lifeSound');
+
+        Sound.volumeSlider = <HTMLInputElement>get('volumeSlider');
+    }
 
     static changeVolume() {
-        Sound.volume = Number((<HTMLInputElement>get('volumeSlider')).value) / 100;
+        Sound.volume = Number(Sound.volumeSlider.value) / 100;
     }
 
     static toggleMute(): void {
         Sound.muted = !Sound.muted;
     }
 
-    static play(sound: string): void {
+    static play(sound: HTMLAudioElement): void {
         if (Sound.muted) return;
-        (<HTMLAudioElement>get(sound)).volume = Sound.volume;
-        (<HTMLAudioElement>get(sound)).currentTime = 0;
-        (<HTMLAudioElement>get(sound)).play();
+        sound.volume = Sound.volume;
+        sound.currentTime = 0;
+        sound.play();
     }
 }
 
 window.onload = function() {
     Block.loadImages();
+    Sound.init();
     Game.init();
 };

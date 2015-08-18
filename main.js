@@ -5,9 +5,10 @@ var Game = (function () {
     function Game() {
     }
     Game.init = function () {
-        Game.context = get('gameCanvas').getContext('2d');
+        Game.canvas = get('gameCanvas');
+        Game.context = Game.canvas.getContext('2d');
         Game.infoContext = get('infoCanvas').getContext('2d');
-        Game.SIZE = { w: Game.context.canvas.width, h: Game.context.canvas.height };
+        Game.SIZE = { w: Game.canvas.width, h: Game.canvas.height };
         Game.iSIZE = { w: Game.infoContext.canvas.width, h: Game.infoContext.canvas.height };
         Game.level = new Level();
         Game.lastTick = Math.floor(performance.now());
@@ -52,40 +53,43 @@ var Level = (function () {
         this.ballstill = true;
         this.deathcount = 0;
         this.player = new Paddle();
-        this.ball = new Ball();
+        this.balls = new Array(1);
+        this.balls[0] = new Ball();
         this.xo = 70;
         this.yo = 25;
         this.heartImg = new Image();
         this.heartImg.src = "res/heart.png";
         this.reset();
     }
-    Level.prototype.getType = function (i, pattern) {
+    Level.prototype.getColour = function (i, pattern) {
         if (!pattern)
             pattern = 6;
         switch (pattern) {
             case 0:
-                return (i % 2 - Math.floor(i / 6) % 2) === 0 ? 1 : 2;
+                return (i % 2 - Math.floor(i / Level.width) % 2) === 0 ? 1 : 2;
             case 1:
-                return i % 6 + 2;
+                return i % Level.width + 2;
             case 2:
-                return Math.floor(i / 6) + 2;
+                return Math.floor(i / Level.width) + 2;
             case 3:
-                return 7 - Math.floor(i / 6) + 2;
+                return 7 - Math.floor(i / Level.width) + 2;
             case 4:
-                return (Math.floor(i / 6) + i % 6) % 8 + 2;
+                return (Math.floor(i / Level.width) + i % Level.width) % 8 + 2;
             case 5:
-                return (Math.floor(i / 6) + (8 - i % 6)) % 8 + 2;
+                return (Math.floor(i / Level.width) + (8 - i % Level.width)) % 8 + 2;
             case 6:
                 return Math.floor(Math.random() * 8) + 2;
             default:
-                console.error("invalid number passed to Level.getType: ", pattern);
-                return i % 6 + 1;
+                console.error("invalid number passed to Level.getColour: ", pattern);
+                return i % Level.width + 1;
         }
     };
     Level.prototype.update = function () {
         if (this.gamestate === Level.gamestates.playing) {
             this.player.update();
-            this.ball.update(this.player);
+            for (var i = 0; i < this.balls.length; i++) {
+                this.balls[i].update(this.player);
+            }
             if (this.checkBoardWon()) {
                 this.deathcount--;
                 this.die();
@@ -100,13 +104,15 @@ var Level = (function () {
     };
     Level.prototype.checkBoardWon = function () {
         for (var i in this.blocks) {
-            if (this.blocks[i].type !== 0)
+            if (this.blocks[i].colour !== 0)
                 return false;
         }
         return true;
     };
     Level.prototype.die = function () {
-        this.ball.reset();
+        var i;
+        this.balls = new Array(1);
+        this.balls[0] = new Ball();
         this.player.reset();
         this.ballstill = true;
         this.deathcount++;
@@ -114,95 +120,166 @@ var Level = (function () {
             this.gamestate = Level.gamestates.lost;
         }
     };
+    Level.prototype.destroySquare = function (xp, yp, ball) {
+        Sound.play(Sound.boom);
+        var x = (xp - this.xo) / 100;
+        var y = (yp - this.yo) / 35;
+        for (var yy = Math.max(y - 1, 0); yy <= Math.min(y + 1, Level.height - 1); yy++) {
+            for (var xx = Math.max(x - 1, 0); xx <= Math.min(x + 1, Level.width - 1); xx++) {
+                if (this.blocks[xx + yy * Level.width].colour === 0)
+                    continue;
+                this.blocks[xx + yy * Level.width].destroy(ball);
+            }
+        }
+    };
     Level.prototype.reset = function () {
+        var i;
         this.gamestate = Level.gamestates.playing;
         this.deathcount = 0;
         this.ballstill = true;
+        this.balls = new Array(1);
+        this.balls[0] = new Ball();
         this.player.reset();
-        this.ball.reset();
-        this.blocks = new Array(48);
-        for (var i = 0; i < this.blocks.length; i++) {
-            this.blocks[i] = new Block((i % 6) * 100 + this.xo, Math.floor(i / 6) * 35 + this.yo, this.getType(i, 3));
+        this.blocks = new Array(Level.width * Level.height);
+        for (i = 0; i < this.blocks.length; i++) {
+            this.blocks[i] = new Block((i % Level.width) * 100 + this.xo, Math.floor(i / Level.width) * 35 + this.yo, this.getColour(i, 3));
         }
     };
     Level.prototype.render = function () {
         var i;
         this.player.render();
-        this.ball.render();
+        for (i = 0; i < this.balls.length; i++) {
+            this.balls[i].render();
+        }
         for (i in this.blocks) {
-            if (this.blocks[i].type === 0)
+            if (this.blocks[i].colour === 0)
                 continue;
             else
                 this.blocks[i].render();
         }
-        switch (this.gamestate) {
-            case Level.gamestates.playing:
-                break;
-            case Level.gamestates.lost:
-            case Level.gamestates.won:
-                Game.context.fillStyle = "#124";
-                Game.context.fillRect(Game.SIZE.w / 2 - 110, 122, 220, 45);
-                Game.context.fillRect(Game.SIZE.w / 2 - 80, 222, 160, 35);
-                Game.context.fillRect(Game.SIZE.w / 2 - 90, 278, 180, 30);
+        if (this.gamestate === Level.gamestates.lost || this.gamestate === Level.gamestates.won) {
+            Game.context.fillStyle = "#123";
+            Game.context.fillRect(Game.SIZE.w / 2 - 110, 112, 220, 100);
+            Game.context.fillRect(Game.SIZE.w / 2 - 80, 252, 160, 30);
+            Game.context.strokeStyle = "#EEF";
+            Game.context.lineWidth = 2;
+            Game.context.strokeRect(Game.SIZE.w / 2 - 112, 110, 224, 104);
+            Game.context.strokeRect(Game.SIZE.w / 2 - 82, 250, 164, 34);
+            Game.context.fillStyle = "white";
+            Game.context.font = "36px Poiret One";
+            var msg = "Game Over!";
+            Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 150);
+            Game.context.font = "28px Poiret One";
+            msg = "You " + (this.gamestate === Level.gamestates.won ? "Won!" : "Lost!");
+            Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 200);
+            Game.context.font = "20px Poiret One";
+            if (Game.lastTick % 800 > 400)
+                Game.context.fillStyle = "grey";
+            msg = "Click to restart";
+            Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 275);
+        }
+        else if (this.ballstill) {
+            if (Game.lastTick % 1000 > 500)
+                Game.context.fillStyle = "grey";
+            else
                 Game.context.fillStyle = "white";
-                Game.context.font = "36px Poiret One";
-                var msg = "Game Over!";
-                Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 150);
-                Game.context.font = "28px Poiret One";
-                msg = "You " + (this.gamestate === Level.gamestates.won ? "Won!" : "Lost!");
-                Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 200);
-                Game.context.font = "20px Poiret One";
-                if (Game.lastTick % 800 > 400)
-                    Game.context.fillStyle = "grey";
-                msg = "Click to restart";
-                Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 275);
-                break;
+            Game.context.font = "30px Poiret One";
+            var msg = "Click to begin";
+            Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 380);
         }
         for (i = 0; i < 3 - this.deathcount; i++) {
             Game.infoContext.drawImage(this.heartImg, 25 + i * 40, Game.iSIZE.h / 2 - 16);
         }
     };
+    Level.width = 6;
+    Level.height = 8;
     Level.gamestates = { playing: -1, lost: 0, won: 1 };
     return Level;
 })();
 var Block = (function () {
-    function Block(x, y, type) {
+    function Block(x, y, colour) {
         this.x = x;
         this.y = y;
-        this.type = type;
+        this.colour = colour;
+        this.powerup = Math.floor(Math.random() * 20);
+        if (this.powerup > Block.powerups.length - 1) {
+            this.powerup = 0;
+        }
     }
     Block.loadImages = function () {
-        Block.images = new Array(10);
-        Block.images[0] = null;
-        Block.images[1] = new Image();
-        Block.images[1].src = "res/block_grey.png";
-        Block.images[2] = new Image();
-        Block.images[2].src = "res/block_red.png";
-        Block.images[3] = new Image();
-        Block.images[3].src = "res/block_orange.png";
-        Block.images[4] = new Image();
-        Block.images[4].src = "res/block_yellow.png";
-        Block.images[5] = new Image();
-        Block.images[5].src = "res/block_green.png";
-        Block.images[6] = new Image();
-        Block.images[6].src = "res/block_blue.png";
-        Block.images[7] = new Image();
-        Block.images[7].src = "res/block_darkblue.png";
-        Block.images[8] = new Image();
-        Block.images[8].src = "res/block_purple.png";
-        Block.images[9] = new Image();
-        Block.images[9].src = "res/block_pink.png";
+        Block.block_images = new Array(10);
+        Block.block_images[0] = null;
+        Block.block_images[1] = new Image();
+        Block.block_images[1].src = "res/blocks/grey.png";
+        Block.block_images[2] = new Image();
+        Block.block_images[2].src = "res/blocks/red.png";
+        Block.block_images[3] = new Image();
+        Block.block_images[3].src = "res/blocks/orange.png";
+        Block.block_images[4] = new Image();
+        Block.block_images[4].src = "res/blocks/yellow.png";
+        Block.block_images[5] = new Image();
+        Block.block_images[5].src = "res/blocks/green.png";
+        Block.block_images[6] = new Image();
+        Block.block_images[6].src = "res/blocks/blue.png";
+        Block.block_images[7] = new Image();
+        Block.block_images[7].src = "res/blocks/darkblue.png";
+        Block.block_images[8] = new Image();
+        Block.block_images[8].src = "res/blocks/purple.png";
+        Block.block_images[9] = new Image();
+        Block.block_images[9].src = "res/blocks/pink.png";
+        Block.powerup_images[0] = null;
+        Block.powerup_images[1] = new Image();
+        Block.powerup_images[1].src = "res/powerups/bomb.png";
+        Block.powerup_images[2] = new Image();
+        Block.powerup_images[2].src = "res/powerups/longer_paddle.png";
+        Block.powerup_images[3] = new Image();
+        Block.powerup_images[3].src = "res/powerups/slicing_ball.png";
+        Block.powerup_images[4] = new Image();
+        Block.powerup_images[4].src = "res/powerups/add_ball.png";
+        Block.powerup_images[5] = new Image();
+        Block.powerup_images[5].src = "res/powerups/add_heart.png";
+    };
+    Block.prototype.destroy = function (ball) {
+        if (this.colour === 0)
+            return;
+        this.colour = 0;
+        switch (Block.powerups[this.powerup]) {
+            case "":
+                break;
+            case "bomb":
+                Game.level.destroySquare(this.x, this.y, ball);
+                break;
+            case "bigger_paddle":
+                Game.level.player.biggerTimer = 300;
+                break;
+            case "slice_ball":
+                ball.slices = 180;
+                break;
+            case "extra_ball":
+                Game.level.balls.push(new Ball());
+                Game.level.balls[Game.level.balls.length - 1].shoot();
+                break;
+            case "extra_life":
+                Game.level.deathcount--;
+                break;
+        }
     };
     Block.prototype.render = function () {
-        Game.context.drawImage(Block.images[this.type], this.x, this.y);
+        Game.context.drawImage(Block.block_images[this.colour], this.x, this.y);
+        if (this.powerup !== 0) {
+            Game.context.drawImage(Block.powerup_images[this.powerup], this.x + Block.width / 2 - 7, this.y + 3);
+        }
     };
     Block.width = 80;
     Block.height = 20;
-    Block.images = Array();
+    Block.block_images = Array();
+    Block.powerups = ["", "bomb", "bigger_paddle", "slice_ball", "extra_ball", "extra_life"];
+    Block.powerup_images = Array();
     return Block;
 })();
 var Paddle = (function () {
     function Paddle() {
+        this.biggerTimer = 0;
         this.reset();
         this.img = new Image();
         this.img.src = "res/player_paddle.png";
@@ -213,14 +290,23 @@ var Paddle = (function () {
         this.width = 180;
         this.height = 25;
         this.maxv = 25;
+        this.biggerTimer = 0;
     };
     Paddle.prototype.update = function () {
+        this.biggerTimer--;
+        if (this.biggerTimer > 0) {
+            if (this.biggerTimer < 100) {
+                this.width = 180 + this.biggerTimer;
+            }
+            else {
+                this.width = 280;
+            }
+        }
+        else {
+            this.width = 180;
+        }
         if (Game.level.ballstill && Mouse.ldown) {
-            Game.level.ballstill = false;
-            Game.level.ball.yv = -7;
-            do {
-                Game.level.ball.xv = Math.floor(Math.random() * 10) - 5;
-            } while (Game.level.ball.xv >= -1 && Game.level.ball.xv <= 1);
+            Game.level.balls[0].shoot();
             return;
         }
         if (Game.level.ballstill)
@@ -230,15 +316,19 @@ var Paddle = (function () {
         this.x += destx > this.x ? amount : -amount;
     };
     Paddle.prototype.render = function () {
-        Game.context.drawImage(this.img, this.x, this.y);
+        Game.context.drawImage(this.img, this.x, this.y, this.width, this.height);
     };
     return Paddle;
 })();
 var Ball = (function () {
     function Ball() {
+        this.maxXv = 8;
+        this.slices = 0;
         this.reset();
         this.img = new Image();
         this.img.src = "res/ball.png";
+        this.img_slicing = new Image();
+        this.img_slicing.src = "res/ball_slicing.png";
     }
     Ball.prototype.reset = function () {
         this.x = 360;
@@ -250,11 +340,16 @@ var Ball = (function () {
     Ball.prototype.update = function (player) {
         this.x += this.xv;
         this.y += this.yv;
+        this.slices--;
         if (this.x + this.r > player.x && this.x - this.r < player.x + player.width && this.y + this.r > player.y && this.y - this.r < player.y + player.height) {
             Sound.play(Sound.blip);
             this.yv = -this.yv;
             this.y = player.y - this.r;
             this.xv += ((this.x - player.x - player.width / 2) / 100) * 5;
+            if (this.xv > this.maxXv)
+                this.xv = this.maxXv;
+            if (this.xv < -this.maxXv)
+                this.xv = -this.maxXv;
             return;
         }
         if (this.x > Game.SIZE.w - this.r) {
@@ -273,6 +368,10 @@ var Ball = (function () {
             this.y = this.r;
         }
         if (this.y > Game.SIZE.h) {
+            if (Game.level.balls.length > 1) {
+                Game.level.balls.splice(Game.level.balls.indexOf(this), 1);
+                return;
+            }
             Sound.play(Sound.die);
             Game.level.die();
             return;
@@ -280,6 +379,9 @@ var Ball = (function () {
         var c = this.collides();
         if (c !== -1) {
             Sound.play(Sound.bloop);
+            if (this.slices > 0) {
+                return;
+            }
             if (this.x > Game.level.blocks[c].x + Block.width) {
                 this.xv = Math.abs(this.xv);
             }
@@ -297,17 +399,29 @@ var Ball = (function () {
     Ball.prototype.collides = function () {
         for (var i in Game.level.blocks) {
             var b = Game.level.blocks[i];
-            if (b.type === 0)
+            if (b.colour === 0)
                 continue;
             if (this.x + this.r > b.x && this.x - this.r < b.x + Block.width && this.y + this.r > b.y && this.y - this.r < b.y + Block.height) {
-                Game.level.blocks[i].type = 0;
+                Game.level.blocks[i].destroy(this);
                 return i;
             }
         }
         return -1;
     };
+    Ball.prototype.shoot = function () {
+        Game.level.ballstill = false;
+        this.yv = -7;
+        do {
+            this.xv = Math.floor(Math.random() * 10) - 5;
+        } while (this.xv >= -1 && this.xv <= 1);
+    };
     Ball.prototype.render = function () {
-        Game.context.drawImage(this.img, this.x - this.r, this.y - this.r);
+        if (this.slices < 80 && this.slices % 20 < 10) {
+            Game.context.drawImage(this.img, this.x - this.r, this.y - this.r);
+        }
+        else {
+            Game.context.drawImage(this.img_slicing, this.x - this.r, this.y - this.r);
+        }
     };
     return Ball;
 })();
@@ -315,8 +429,8 @@ var Mouse = (function () {
     function Mouse() {
     }
     Mouse.update = function (event) {
-        Mouse.x = event.clientX - get('gameCanvas').getBoundingClientRect().left;
-        Mouse.y = event.clientY - get('gameCanvas').getBoundingClientRect().top;
+        Mouse.x = event.clientX - Game.canvas.getBoundingClientRect().left;
+        Mouse.y = event.clientY - Game.canvas.getBoundingClientRect().top;
     };
     Mouse.down = function (event) {
         if (event.button === 1 || event.which === 1)
@@ -339,8 +453,16 @@ var Mouse = (function () {
 var Sound = (function () {
     function Sound() {
     }
+    Sound.init = function () {
+        Sound.blip = get('blipSound');
+        Sound.bloop = get('bloopSound');
+        Sound.die = get('dieSound');
+        Sound.boom = get('boomSound');
+        Sound.life = get('lifeSound');
+        Sound.volumeSlider = get('volumeSlider');
+    };
     Sound.changeVolume = function () {
-        Sound.volume = Number(get('volumeSlider').value) / 100;
+        Sound.volume = Number(Sound.volumeSlider.value) / 100;
     };
     Sound.toggleMute = function () {
         Sound.muted = !Sound.muted;
@@ -348,18 +470,16 @@ var Sound = (function () {
     Sound.play = function (sound) {
         if (Sound.muted)
             return;
-        get(sound).volume = Sound.volume;
-        get(sound).currentTime = 0;
-        get(sound).play();
+        sound.volume = Sound.volume;
+        sound.currentTime = 0;
+        sound.play();
     };
-    Sound.blip = 'blipSound';
-    Sound.bloop = 'bloopSound';
-    Sound.die = 'dieSound';
     Sound.muted = false;
     Sound.volume = 0.5;
     return Sound;
 })();
 window.onload = function () {
     Block.loadImages();
+    Sound.init();
     Game.init();
 };

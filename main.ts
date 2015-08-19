@@ -6,9 +6,12 @@ function get(what: string): HTMLElement {
 class Game {
     static SIZE: { w: number, h: number }; // size of gameCanvas
     static iSIZE: { w: number, h: number }; // size of infoCanvas
+
     static canvas: HTMLCanvasElement;
     static context: CanvasRenderingContext2D; // context for the gameCanvas
     static infoContext: CanvasRenderingContext2D; // context for the infoCanvas
+    static canvasClientRect = { left: 0, top: 0 }; // used by the mouse class to determine mouse's relative position to the canvas
+
     static level: Level;
 
     static lastTick: number;
@@ -19,14 +22,15 @@ class Game {
         Game.canvas = <HTMLCanvasElement>get('gameCanvas');
         Game.context = Game.canvas.getContext('2d');
         Game.infoContext = (<HTMLCanvasElement>get('infoCanvas')).getContext('2d');
+        Game.canvasClientRect = Game.canvas.getBoundingClientRect();
         Game.SIZE = { w: Game.canvas.width, h: Game.canvas.height };
         Game.iSIZE = { w: Game.infoContext.canvas.width, h: Game.infoContext.canvas.height };
-
-        Game.level = new Level();
 
         Game.lastTick = Math.floor(performance.now()); // we'll only ever be adding whole numbers to this, no point in storing floating point value
         Game.lastRender = Game.lastTick; //Pretend the first draw was on first update.
         Game.tickLength = 17;
+
+        Game.level = new Level();
 
         Game.loop(performance.now());
     }
@@ -107,29 +111,6 @@ class Level {
         this.reset();
     }
 
-    getColour(i: number, pattern?: number): number {
-        if (!pattern) pattern = 6;
-        switch (pattern) {
-            case 0: // checker board
-                return (i % 2 - Math.floor(i / Level.width) % 2) === 0 ? 1 : 2;
-            case 1: // rainbow columns
-                return i % Level.width + 2;
-            case 2: // rainbow rows
-                return Math.floor(i / Level.width) + 2;
-            case 3: // rainbow rows (flipped)
-                return 7 - Math.floor(i / Level.width) + 2;
-            case 4: // rainbow diagonal
-                return (Math.floor(i / Level.width) + i % Level.width) % 8 + 2;
-            case 5: // rainbow diagonal (flipped)
-                return (Math.floor(i / Level.width) + (8 - i % Level.width)) % 8 + 2;
-            case 6:
-                return Math.floor(Math.random() * 8) + 2;
-            default:
-                console.error("invalid number passed to Level.getColour: ", pattern);
-                return i % Level.width + 1;
-        }
-    }
-
     update() {
         if (this.gamestate === Level.gamestates.playing) {
             this.player.update();
@@ -195,6 +176,29 @@ class Level {
         this.blocks = new Array(Level.width * Level.height);
         for (i = 0; i < this.blocks.length; i++) {
             this.blocks[i] = new Block((i % Level.width) * 100 + this.xo, Math.floor(i / Level.width) * 35 + this.yo, this.getColour(i, 3));
+        }
+    }
+
+    getColour(i: number, pattern?: number): number {
+        if (!pattern) pattern = 6;
+        switch (pattern) {
+            case 0: // checker board
+                return (i % 2 - Math.floor(i / Level.width) % 2) === 0 ? 1 : 2;
+            case 1: // rainbow columns
+                return i % Level.width + 2;
+            case 2: // rainbow rows
+                return Math.floor(i / Level.width) + 2;
+            case 3: // rainbow rows (flipped)
+                return 7 - Math.floor(i / Level.width) + 2;
+            case 4: // rainbow diagonal
+                return (Math.floor(i / Level.width) + i % Level.width) % 8 + 2;
+            case 5: // rainbow diagonal (flipped)
+                return (Math.floor(i / Level.width) + (8 - i % Level.width)) % 8 + 2;
+            case 6:
+                return Math.floor(Math.random() * 8) + 2;
+            default:
+                console.error("invalid number passed to Level.getColour: ", pattern);
+                return i % Level.width + 1;
         }
     }
 
@@ -322,7 +326,7 @@ class Block {
                 Game.level.player.biggerTimer = 300;
                 break;
             case "slice_ball":
-                ball.slices = 180;
+                ball.slices = 100;
                 break;
             case "extra_ball":
                 Game.level.balls.push(new Ball());
@@ -516,7 +520,7 @@ class Ball {
     }
 
     render() {
-        if (this.slices < 80 && this.slices % 20 < 10) { // blinking effect when slicing effect is about to wear off
+        if (this.slices < 60 && this.slices % 20 < 10) { // blinking effect when slicing effect is about to wear off
             Game.context.drawImage(this.img, this.x - this.r, this.y - this.r);
         } else {
             Game.context.drawImage(this.img_slicing, this.x - this.r, this.y - this.r);
@@ -533,8 +537,8 @@ class Mouse {
     static rdown: boolean = false;
 
     static update(event: MouseEvent) {
-        Mouse.x = event.clientX - Game.canvas.getBoundingClientRect().left;
-        Mouse.y = event.clientY - Game.canvas.getBoundingClientRect().top;
+        Mouse.x = event.clientX - Game.canvasClientRect.left;
+        Mouse.y = event.clientY - Game.canvasClientRect.top;
     }
 
     static down(event: MouseEvent) {
@@ -584,6 +588,36 @@ class Sound {
         sound.volume = Sound.volume;
         sound.currentTime = 0;
         sound.play();
+    }
+}
+
+function toggleFooter(which: string) {
+    var front = '1',
+        back = '0',
+        help = get('helpFooter'),
+        about = get('aboutFooter');
+
+    if (which === 'help') {
+        if (help.className === 'short') {
+            help.style.zIndex = front;
+            help.className = 'long';
+            about.style.zIndex = back;
+            about.className = 'short';
+
+        } else {
+            about.className = 'short';
+            help.className = 'short';
+        }
+    } else {
+        if (about.className === 'short') {
+            about.style.zIndex = front;
+            about.className = 'long';
+            help.style.zIndex = back;
+            help.className = 'short';
+        } else {
+            help.className = 'short';
+            about.className = 'short';
+        }
     }
 }
 

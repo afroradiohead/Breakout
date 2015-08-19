@@ -8,3 +8,5 @@ Feature Ideas
 - Score
   - Better score for better times?
   - Certain blocks give more points than others
+- Static blocks which can not be destroyed (unless by bombs?)
+  - Level system

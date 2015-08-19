@@ -8,12 +8,13 @@ var Game = (function () {
         Game.canvas = get('gameCanvas');
         Game.context = Game.canvas.getContext('2d');
         Game.infoContext = get('infoCanvas').getContext('2d');
+        Game.canvasClientRect = Game.canvas.getBoundingClientRect();
         Game.SIZE = { w: Game.canvas.width, h: Game.canvas.height };
         Game.iSIZE = { w: Game.infoContext.canvas.width, h: Game.infoContext.canvas.height };
-        Game.level = new Level();
         Game.lastTick = Math.floor(performance.now());
         Game.lastRender = Game.lastTick;
         Game.tickLength = 17;
+        Game.level = new Level();
         Game.loop(performance.now());
     };
     Game.loop = function (tFrame) {
@@ -46,6 +47,7 @@ var Game = (function () {
         Game.infoContext.fillRect(0, Game.iSIZE.h - 2, Game.iSIZE.w, 2);
         Game.level.render();
     };
+    Game.canvasClientRect = { left: 0, top: 0 };
     return Game;
 })();
 var Level = (function () {
@@ -61,29 +63,6 @@ var Level = (function () {
         this.heartImg.src = "res/heart.png";
         this.reset();
     }
-    Level.prototype.getColour = function (i, pattern) {
-        if (!pattern)
-            pattern = 6;
-        switch (pattern) {
-            case 0:
-                return (i % 2 - Math.floor(i / Level.width) % 2) === 0 ? 1 : 2;
-            case 1:
-                return i % Level.width + 2;
-            case 2:
-                return Math.floor(i / Level.width) + 2;
-            case 3:
-                return 7 - Math.floor(i / Level.width) + 2;
-            case 4:
-                return (Math.floor(i / Level.width) + i % Level.width) % 8 + 2;
-            case 5:
-                return (Math.floor(i / Level.width) + (8 - i % Level.width)) % 8 + 2;
-            case 6:
-                return Math.floor(Math.random() * 8) + 2;
-            default:
-                console.error("invalid number passed to Level.getColour: ", pattern);
-                return i % Level.width + 1;
-        }
-    };
     Level.prototype.update = function () {
         if (this.gamestate === Level.gamestates.playing) {
             this.player.update();
@@ -143,6 +122,29 @@ var Level = (function () {
         this.blocks = new Array(Level.width * Level.height);
         for (i = 0; i < this.blocks.length; i++) {
             this.blocks[i] = new Block((i % Level.width) * 100 + this.xo, Math.floor(i / Level.width) * 35 + this.yo, this.getColour(i, 3));
+        }
+    };
+    Level.prototype.getColour = function (i, pattern) {
+        if (!pattern)
+            pattern = 6;
+        switch (pattern) {
+            case 0:
+                return (i % 2 - Math.floor(i / Level.width) % 2) === 0 ? 1 : 2;
+            case 1:
+                return i % Level.width + 2;
+            case 2:
+                return Math.floor(i / Level.width) + 2;
+            case 3:
+                return 7 - Math.floor(i / Level.width) + 2;
+            case 4:
+                return (Math.floor(i / Level.width) + i % Level.width) % 8 + 2;
+            case 5:
+                return (Math.floor(i / Level.width) + (8 - i % Level.width)) % 8 + 2;
+            case 6:
+                return Math.floor(Math.random() * 8) + 2;
+            default:
+                console.error("invalid number passed to Level.getColour: ", pattern);
+                return i % Level.width + 1;
         }
     };
     Level.prototype.render = function () {
@@ -253,7 +255,7 @@ var Block = (function () {
                 Game.level.player.biggerTimer = 300;
                 break;
             case "slice_ball":
-                ball.slices = 180;
+                ball.slices = 100;
                 break;
             case "extra_ball":
                 Game.level.balls.push(new Ball());
@@ -416,7 +418,7 @@ var Ball = (function () {
         } while (this.xv >= -1 && this.xv <= 1);
     };
     Ball.prototype.render = function () {
-        if (this.slices < 80 && this.slices % 20 < 10) {
+        if (this.slices < 60 && this.slices % 20 < 10) {
             Game.context.drawImage(this.img, this.x - this.r, this.y - this.r);
         }
         else {
@@ -429,8 +431,8 @@ var Mouse = (function () {
     function Mouse() {
     }
     Mouse.update = function (event) {
-        Mouse.x = event.clientX - Game.canvas.getBoundingClientRect().left;
-        Mouse.y = event.clientY - Game.canvas.getBoundingClientRect().top;
+        Mouse.x = event.clientX - Game.canvasClientRect.left;
+        Mouse.y = event.clientY - Game.canvasClientRect.top;
     };
     Mouse.down = function (event) {
         if (event.button === 1 || event.which === 1)
@@ -478,6 +480,33 @@ var Sound = (function () {
     Sound.volume = 0.5;
     return Sound;
 })();
+function toggleFooter(which) {
+    var front = '1', back = '0', help = get('helpFooter'), about = get('aboutFooter');
+    if (which === 'help') {
+        if (help.className === 'short') {
+            help.style.zIndex = front;
+            help.className = 'long';
+            about.style.zIndex = back;
+            about.className = 'short';
+        }
+        else {
+            about.className = 'short';
+            help.className = 'short';
+        }
+    }
+    else {
+        if (about.className === 'short') {
+            about.style.zIndex = front;
+            about.className = 'long';
+            help.style.zIndex = back;
+            help.className = 'short';
+        }
+        else {
+            help.className = 'short';
+            about.className = 'short';
+        }
+    }
+}
 window.onload = function () {
     Block.loadImages();
     Sound.init();

@@ -21,6 +21,16 @@
         margin: 0;
         padding: 0;
     }
+    canvas {
+        vertical-align: top; /* Removes gap between canvases */
+    }
+    a {
+        color: #BBB;
+        text-decoration: none;
+    }
+    a:hover {
+        color: #FFF;
+    }
     h1 {
         cursor: default;
         font-size: 48px;
@@ -36,21 +46,12 @@
         border-bottom-left-radius: 10px;
         border-bottom-right-radius: 10px;
         position: relative; /* Allows box-shadow to appear over footer */
+        z-index: 5;
     }
     main p {
         font-size: 24px;
     }
-    canvas {
-        vertical-align: top; /* Removes gap between canvases */
-    }
-    a {
-        color: #BBB;
-        text-decoration: none;
-    }
-    a:hover {
-        color: #FFF;
-    }
-    #aboutButton {
+    .button {
         margin: 80px auto 15px auto;
         width: 90px;
         color: #123;
@@ -59,7 +60,7 @@
         font-size: 28px;
         background-color: #FFF;
     }
-    #aboutButton:hover {
+    .button:hover {
         background-color: #DDD;
         color: #000;
     }
@@ -76,15 +77,16 @@
         background-color: #234;
         box-shadow: 0 0 35px #114;
         position: absolute;
-        z-index: -1;
         line-height: 30px;
-
         transition: margin 0.5s;
     }
     footer p {
         font-size: 24px;
     }
-    footer.long {
+    footer span {
+        bottom: 0;
+    }
+    footer.short {
         margin-top: -130px;
     }
     </style>
@@ -105,16 +107,21 @@
             <input id="volumeSlider" type="range" value="30" style="display: block; margin-left: 92px;" onchange="Sound.changeVolume()"/>
             <span style="font-size: 22px; float: left; margin-left: 125px;">volume</span>
         </div>
-        <div id="aboutButton" class="button" onmousedown="get('footer').className=(get('footer').className==''?'long':'')">About</div>
+        <div style="width: 200px; margin: 0 auto">
+            <div id="helpButton" style="display: inline-block"class="button" onmousedown="toggleFooter('help')">Help</div>
+            <div id="aboutButton" style="display: inline-block" class="button" onmousedown="toggleFooter('about')">About</div>
         </div>
     </main>
 
-    <footer id="footer" class="long">
+    <footer id="aboutFooter" style="z-index: 1" class="short">
         <p>This is a simple implementation of Breakout, made by AJ Weeks in August 2015.</p>
-        <p>You can view the source at <a href="http://github.com/ajweeks/breakout/">github.com/ajweeks/breakout</a></p>
         <p>Play more of my games at <a href="http://ajweeks.github.io/games">ajweeks.github.io/games</a></p>
-        <br />
-        <span>Copyright AJ Weeks 2015</span>
+        <p>You can view the source at <a href="http://github.com/ajweeks/breakout/">github.com/ajweeks/breakout</a></p>
+    </footer>
+    <footer id="helpFooter" style="z-index: 0" class="short">
+        <p>This is a help section</p>
+        <p>help</p>
+        <p>help</p>
     </footer>
 </body>
 </html>

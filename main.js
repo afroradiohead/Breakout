@@ -203,7 +203,7 @@ var Block = (function () {
         this.x = x;
         this.y = y;
         this.colour = colour;
-        this.powerup = Math.floor(Math.random() * 20);
+        this.powerup = Math.floor(Math.random() * 24);
         if (this.powerup > Block.powerups.length - 1) {
             this.powerup = 0;
         }
@@ -481,28 +481,13 @@ var Sound = (function () {
     return Sound;
 })();
 function toggleFooter(which) {
-    var front = '1', back = '0', help = get('helpFooter'), about = get('aboutFooter');
-    if (which === 'help') {
-        if (help.className === 'short') {
-            help.style.zIndex = front;
-            help.className = 'long';
-            about.style.zIndex = back;
-            about.className = 'short';
-        }
-        else {
-            about.className = 'short';
-            help.className = 'short';
-        }
-    }
-    else {
+    var front = '1', back = '0', about = get('aboutFooter');
+    if (which === 'about') {
         if (about.className === 'short') {
             about.style.zIndex = front;
             about.className = 'long';
-            help.style.zIndex = back;
-            help.className = 'short';
         }
         else {
-            help.className = 'short';
             about.className = 'short';
         }
     }

@@ -13,6 +13,7 @@ class Game {
     static canvasClientRect = { left: 0, top: 0 }; // used by the mouse class to determine mouse's relative position to the canvas
 
     static level: Level;
+    static paused: boolean = false;
 
     static lastTick: number;
     static lastRender: number;
@@ -75,6 +76,10 @@ class Game {
         Game.level.render();
     }
 
+    static togglePause() {
+        Game.paused = !Game.paused;
+    }
+
 }
 
 class Level {
@@ -112,7 +117,8 @@ class Level {
     }
 
     update() {
-        if (this.gamestate === Level.gamestates.playing) {
+        if (Game.paused) return;
+        if (this.gamestate === Level.gamestates.playing)  {
             this.player.update();
             for (var i = 0; i < this.balls.length; i++) {
                 this.balls[i].update(this.player);
@@ -166,6 +172,7 @@ class Level {
     reset() {
         var i;
 
+        Game.paused = false;
         this.gamestate = Level.gamestates.playing;
         this.deathcount = 0;
         this.ballstill = true;
@@ -222,8 +229,8 @@ class Level {
 
             Game.context.strokeStyle = "#EEF";
             Game.context.lineWidth = 2;
-            Game.context.strokeRect(Game.SIZE.w / 2 - 112, 110, 224, 104);
-            Game.context.strokeRect(Game.SIZE.w / 2 - 82, 250, 164, 34);
+            Game.context.strokeRect(Game.SIZE.w / 2 - 110, 112, 220, 100);
+            Game.context.strokeRect(Game.SIZE.w / 2 - 80, 252, 160, 30);
 
             Game.context.fillStyle = "white";
             Game.context.font = "36px Poiret One";
@@ -605,6 +612,15 @@ function toggleFooter(which: string) {
         }
     }
 }
+
+function keydown(event: KeyboardEvent) {
+    if (event.keyCode === 27 || event.which === 27) {
+        Game.togglePause();
+        if (Game.level.ballstill) Game.paused = false;
+    }
+}
+
+window.onkeydown = keydown;
 
 window.onload = function() {
     Block.loadImages();

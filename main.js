@@ -47,7 +47,11 @@ var Game = (function () {
         Game.infoContext.fillRect(0, Game.iSIZE.h - 2, Game.iSIZE.w, 2);
         Game.level.render();
     };
+    Game.togglePause = function () {
+        Game.paused = !Game.paused;
+    };
     Game.canvasClientRect = { left: 0, top: 0 };
+    Game.paused = false;
     return Game;
 })();
 var Level = (function () {
@@ -64,6 +68,8 @@ var Level = (function () {
         this.reset();
     }
     Level.prototype.update = function () {
+        if (Game.paused)
+            return;
         if (this.gamestate === Level.gamestates.playing) {
             this.player.update();
             for (var i = 0; i < this.balls.length; i++) {
@@ -113,6 +119,7 @@ var Level = (function () {
     };
     Level.prototype.reset = function () {
         var i;
+        Game.paused = false;
         this.gamestate = Level.gamestates.playing;
         this.deathcount = 0;
         this.ballstill = true;
@@ -165,8 +172,8 @@ var Level = (function () {
             Game.context.fillRect(Game.SIZE.w / 2 - 80, 252, 160, 30);
             Game.context.strokeStyle = "#EEF";
             Game.context.lineWidth = 2;
-            Game.context.strokeRect(Game.SIZE.w / 2 - 112, 110, 224, 104);
-            Game.context.strokeRect(Game.SIZE.w / 2 - 82, 250, 164, 34);
+            Game.context.strokeRect(Game.SIZE.w / 2 - 110, 112, 220, 100);
+            Game.context.strokeRect(Game.SIZE.w / 2 - 80, 252, 160, 30);
             Game.context.fillStyle = "white";
             Game.context.font = "36px Poiret One";
             var msg = "Game Over!";
@@ -492,6 +499,14 @@ function toggleFooter(which) {
         }
     }
 }
+function keydown(event) {
+    if (event.keyCode === 27 || event.which === 27) {
+        Game.togglePause();
+        if (Game.level.ballstill)
+            Game.paused = false;
+    }
+}
+window.onkeydown = keydown;
 window.onload = function () {
     Block.loadImages();
     Sound.init();

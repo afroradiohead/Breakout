@@ -36,20 +36,20 @@ class Game {
         Game.loop(performance.now());
     }
 
-    static loop(tFrame) {
+    static loop(delta: number) {
         window.requestAnimationFrame(Game.loop);
 
         var nextTick = Game.lastTick + Game.tickLength;
         var numTicks = 0;
 
-        if (tFrame > nextTick) {
-            var timeSinceTick = tFrame - Game.lastTick;
+        if (delta > nextTick) {
+            var timeSinceTick = delta - Game.lastTick;
             numTicks = Math.floor(timeSinceTick / Game.tickLength);
         }
 
         Game.queueUpdates(numTicks);
         Game.render();
-        Game.lastRender = tFrame;
+        Game.lastRender = delta;
     }
 
     static queueUpdates(numTicks: number) {

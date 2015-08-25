@@ -17,17 +17,17 @@ var Game = (function () {
         Game.level = new Level();
         Game.loop(performance.now());
     };
-    Game.loop = function (tFrame) {
+    Game.loop = function (delta) {
         window.requestAnimationFrame(Game.loop);
         var nextTick = Game.lastTick + Game.tickLength;
         var numTicks = 0;
-        if (tFrame > nextTick) {
-            var timeSinceTick = tFrame - Game.lastTick;
+        if (delta > nextTick) {
+            var timeSinceTick = delta - Game.lastTick;
             numTicks = Math.floor(timeSinceTick / Game.tickLength);
         }
         Game.queueUpdates(numTicks);
         Game.render();
-        Game.lastRender = tFrame;
+        Game.lastRender = delta;
     };
     Game.queueUpdates = function (numTicks) {
         for (var i = 0; i < numTicks; i++) {

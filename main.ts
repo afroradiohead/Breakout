@@ -1,4 +1,15 @@
 
+/*
+    Feature list:
+        -[x] Keyboard input
+        -[x] Pause overlay
+        -[ ] Particles
+        -[ ] Screenshake
+        -[ ] Animations
+        -[ ] Incremental sounds (to reward combos)
+        -[ ] Drop tiles down from top smoothly
+*/
+
 function get(what: string): HTMLElement {
     return document.getElementById(what);
 }
@@ -79,7 +90,6 @@ class Game {
     static togglePause() {
         Game.paused = !Game.paused;
     }
-
 }
 
 class Level {
@@ -88,6 +98,8 @@ class Level {
 
     xo: number;
     yo: number;
+
+    camera: Camera;
 
     static width: number = 6; // how many blocks wide the field is
     static height: number = 8; // how many blocks tall the field is
@@ -102,10 +114,14 @@ class Level {
 
     heartImg: HTMLImageElement;
 
+    particleGenerators: ParticleGenerator[];
+
     constructor() {
         this.player = new Paddle();
         this.balls = new Array<Ball>(1);
         this.balls[0] = new Ball();
+
+        this.camera = new Camera();
 
         this.xo = 70; // keep these constant for now
         this.yo = 25;
@@ -113,12 +129,21 @@ class Level {
         this.heartImg = new Image();
         this.heartImg.src = "res/heart.png";
 
+        this.particleGenerators = new Array<ParticleGenerator>();
+
         this.reset();
     }
 
     update() {
-        if (Game.paused) return;
-        if (this.gamestate === Level.gamestates.playing)  {
+        if (Game.paused) {
+            if (Mouse.ldown) {
+                Game.paused = false;
+            } else {
+                return;
+            }
+        }
+
+        if (this.gamestate === Level.gamestates.playing) {
             this.player.update();
             for (var i = 0; i < this.balls.length; i++) {
                 this.balls[i].update(this.player);
@@ -130,20 +155,26 @@ class Level {
                 this.gamestate = Level.gamestates.won;
             }
         } else {
-            if (Mouse.ldown) { // the player wants to restart
+            if (Mouse.ldown || Keyboard.keysdown[Keyboard.KEYS.SPACE]) {
                 this.reset();
             }
         }
+
+        for (var g in this.particleGenerators) {
+            this.particleGenerators[g].update();
+        }
+
+        this.camera.update();
     }
 
     checkBoardWon(): boolean {
         for (var i in this.blocks) {
-            if (this.blocks[i].colour !== 0) return false;
+            if (this.blocks[i].color !== 0) return false;
         }
         return true;
     }
 
-    die() { // TODO rename this: it gets called whenever the ball goes off the bottom of the screen
+    die() {
         var i;
 
         this.balls = new Array<Ball>(1);
@@ -154,7 +185,6 @@ class Level {
         if (this.deathcount >= 3) {
             this.gamestate = Level.gamestates.lost;
         }
-
     }
 
     destroySquare(xp: number, yp: number, ball: Ball) { // destroys a 3x3 square (bomb tile)
@@ -163,10 +193,13 @@ class Level {
         var y = (yp - this.yo) / 35;
         for (var yy = Math.max(y - 1, 0); yy <= Math.min(y + 1, Level.height - 1); yy++) {
             for (var xx = Math.max(x - 1, 0); xx <= Math.min(x + 1, Level.width - 1); xx++) {
-                if (this.blocks[xx + yy * Level.width].colour === 0) continue;
+                if (this.blocks[xx + yy * Level.width].color === 0) continue;
+                if (xx === x && yy === y) continue;
                 this.blocks[xx + yy * Level.width].destroy(ball);
             }
         }
+
+        this.camera.shake(this.balls[0].xv * 2, this.balls[0].yv * 2);
     }
 
     reset() {
@@ -182,31 +215,12 @@ class Level {
 
         this.blocks = new Array(Level.width * Level.height);
         for (i = 0; i < this.blocks.length; i++) {
-            this.blocks[i] = new Block((i % Level.width) * 100 + this.xo, Math.floor(i / Level.width) * 35 + this.yo, this.getColour(i, 3));
+            this.blocks[i] = new Block((i % Level.width) * 100 + this.xo, Math.floor(i / Level.width) * 35 + this.yo, this.getColor(i));
         }
     }
 
-    getColour(i: number, pattern?: number): number {
-        if (!pattern) pattern = 6;
-        switch (pattern) {
-            case 0: // checker board
-                return (i % 2 - Math.floor(i / Level.width) % 2) === 0 ? 1 : 2;
-            case 1: // rainbow columns
-                return i % Level.width + 2;
-            case 2: // rainbow rows
-                return Math.floor(i / Level.width) + 2;
-            case 3: // rainbow rows (flipped)
-                return 7 - Math.floor(i / Level.width) + 2;
-            case 4: // rainbow diagonal
-                return (Math.floor(i / Level.width) + i % Level.width) % 8 + 2;
-            case 5: // rainbow diagonal (flipped)
-                return (Math.floor(i / Level.width) + (8 - i % Level.width)) % 8 + 2;
-            case 6:
-                return Math.floor(Math.random() * 8) + 2;
-            default:
-                console.error("invalid number passed to Level.getColour: ", pattern);
-                return i % Level.width + 1;
-        }
+    getColor(i: number): number {
+        return (i%9) + 1;
     }
 
     render() {
@@ -218,19 +232,13 @@ class Level {
         }
 
         for (i in this.blocks) {
-            if (this.blocks[i].colour === 0) continue;
+            if (this.blocks[i].color === 0) continue;
             else this.blocks[i].render();
         }
 
         if (this.gamestate === Level.gamestates.lost || this.gamestate === Level.gamestates.won) {
-            Game.context.fillStyle = "#123";
-            Game.context.fillRect(Game.SIZE.w / 2 - 110, 112, 220, 100);
-            Game.context.fillRect(Game.SIZE.w / 2 - 80, 252, 160, 30);
-
-            Game.context.strokeStyle = "#EEF";
-            Game.context.lineWidth = 2;
-            Game.context.strokeRect(Game.SIZE.w / 2 - 110, 112, 220, 100);
-            Game.context.strokeRect(Game.SIZE.w / 2 - 80, 252, 160, 30);
+            drawHorizontallyCenteredRectangle(112, 220, 100);
+            drawHorizontallyCenteredRectangle(252, 160, 30);
 
             Game.context.fillStyle = "white";
             Game.context.font = "36px Poiret One";
@@ -245,6 +253,21 @@ class Level {
             if (Game.lastTick % 800 > 400) Game.context.fillStyle = "grey";
             msg = "Click to restart";
             Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 275);
+
+        } else if(Game.paused) {
+
+            drawHorizontallyCenteredRectangle(112, 220, 50);
+            drawHorizontallyCenteredRectangle(248, 230, 35);
+
+            Game.context.fillStyle = "white";
+            Game.context.font = "36px Poiret One";
+            var msg = "Paused";
+            Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 150);
+            Game.context.font = "28px Poiret One";
+
+            if (Game.lastTick % 800 > 400) Game.context.fillStyle = "grey";
+            msg = "Click to unpause";
+            Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 275);
         } else if (this.ballstill) {
             if (Game.lastTick % 1000 > 500) Game.context.fillStyle = "grey";
             else Game.context.fillStyle = "white";
@@ -257,7 +280,19 @@ class Level {
             Game.infoContext.drawImage(this.heartImg, 25 + i * 40, Game.iSIZE.h / 2 - 16);
         }
 
+        for (var g in this.particleGenerators) {
+            this.particleGenerators[g].render();
+        }
     }
+}
+
+function drawHorizontallyCenteredRectangle(y: number, w: number, h: number): void {
+    Game.context.fillStyle = "#123";
+    Game.context.fillRect(Game.SIZE.w / 2 - w / 2, y, w, h);
+
+    Game.context.strokeStyle = "#EEF";
+    Game.context.lineWidth = 2;
+    Game.context.strokeRect(Game.SIZE.w / 2 - w / 2, y, w, h);
 }
 
 class Block {
@@ -268,7 +303,7 @@ class Block {
     y: number;
 
     static block_images = Array<HTMLImageElement>();
-    colour: number; // an index in Block.block_images array
+    color: number; // an index in Block.block_images array
 
 
     static powerups = ["", "bomb", "bigger_paddle", "slice_ball", "extra_ball", "extra_life"];
@@ -310,10 +345,10 @@ class Block {
         Block.powerup_images[5].src = "res/powerups/add_heart.png";
     }
 
-    constructor(x: number, y: number, colour: number) {
+    constructor(x: number, y: number, color: number) {
         this.x = x;
         this.y = y;
-        this.colour = colour;
+        this.color = color;
         this.powerup = Math.floor(Math.random() * 24);
         if (this.powerup > Block.powerups.length - 1) {
             this.powerup = 0;
@@ -321,8 +356,7 @@ class Block {
     }
 
     destroy(ball: Ball) {
-        if (this.colour === 0) return;
-        this.colour = 0;
+        if (this.color === 0) return;
         switch (Block.powerups[this.powerup]) {
             case "":
                 break;
@@ -343,12 +377,19 @@ class Block {
                 Game.level.deathcount--;
                 break;
         }
+
+        Game.level.particleGenerators.push(
+            new ParticleGenerator(this.x + Block.width / 2,
+                                  this.y,
+                                  Color.convert(this.color)));
+
+        this.color = 0;
     }
 
     render() {
-        Game.context.drawImage(Block.block_images[this.colour], this.x, this.y);
+        Game.context.drawImage(Block.block_images[this.color], this.x + Game.level.camera.xo, this.y + Game.level.camera.yo);
         if (this.powerup !== 0) {
-            Game.context.drawImage(Block.powerup_images[this.powerup], this.x + Block.width / 2 - 7, this.y + 3);
+            Game.context.drawImage(Block.powerup_images[this.powerup], this.x + Block.width / 2 - 7 + Game.level.camera.xo, this.y + 3 + Game.level.camera.yo);
         }
     }
 
@@ -363,12 +404,15 @@ class Paddle {
     maxv: number;
     biggerTimer: number = 0;
     img: HTMLImageElement;
+    usingMouseInput: boolean;
 
     constructor() {
         this.reset();
 
         this.img = new Image();
         this.img.src = "res/player_paddle.png";
+
+        this.usingMouseInput = true;
     }
 
     reset() {
@@ -398,15 +442,28 @@ class Paddle {
         }
         if (Game.level.ballstill) return;
 
-        var destx = Math.min(Math.max(Mouse.x - this.width / 2, 0), Game.SIZE.w - this.width);
-        var amount = Math.min(Math.abs(this.x - destx), this.maxv);
+        var left = !!(Keyboard.keysdown[Keyboard.KEYS.A] || Keyboard.keysdown[Keyboard.KEYS.LEFT]);
+        var right = !!(Keyboard.keysdown[Keyboard.KEYS.D] || Keyboard.keysdown[Keyboard.KEYS.RIGHT]);
+        var destx = this.x;
+        var amount = 0;
+
+        if (this.usingMouseInput) {
+            destx = Math.min(Math.max(Mouse.x - this.width / 2, 0), Game.SIZE.w - this.width);
+        } else {
+            if (left) {
+                destx = 0;
+            } else if (right) {
+                destx = Game.canvas.width - this.width;
+            }
+        }
+        amount = Math.min(Math.abs(this.x - destx), this.maxv);
+
         this.x += destx > this.x ? amount : -amount;
     }
 
     render() {
         Game.context.drawImage(this.img, this.x, this.y, this.width, this.height);
     }
-
 }
 
 class Ball {
@@ -448,6 +505,7 @@ class Ball {
         // check for colisions with player paddle
         if (this.x + this.r > player.x && this.x - this.r < player.x + player.width && this.y + this.r > player.y && this.y - this.r < player.y + player.height) {
             Sound.play(Sound.blip);
+            Game.level.camera.shake(this.xv, this.yv);
             this.yv = -this.yv;
             this.y = player.y - this.r;
             this.xv += ((this.x - player.x - player.width / 2) / 100) * 5;
@@ -459,16 +517,19 @@ class Ball {
         // check for colisions with window edges
         if (this.x > Game.SIZE.w - this.r) {
             Sound.play(Sound.bloop);
+            Game.level.camera.shake(this.xv * 3, this.yv);
             this.xv = -this.xv;
             this.x = Game.SIZE.w - this.r;
         }
         if (this.x < this.r) {
             Sound.play(Sound.bloop);
+            Game.level.camera.shake(this.xv * 3, this.yv);
             this.xv = -this.xv;
             this.x = this.r;
         }
         if (this.y < this.r) {
             Sound.play(Sound.bloop);
+            Game.level.camera.shake(this.xv, this.yv * 3);
             this.yv = -this.yv;
             this.y = this.r;
         }
@@ -492,15 +553,19 @@ class Ball {
 
             if (this.x > Game.level.blocks[c].x + Block.width) {
                 this.xv = Math.abs(this.xv);
+                Game.level.camera.shake(this.xv * 2, this.yv);
             }
             if (this.x < Game.level.blocks[c].x) {
                 this.xv = -Math.abs(this.xv);
+                Game.level.camera.shake(this.xv * 2, this.yv);
             }
             if (this.y > Game.level.blocks[c].y + Block.height) {
                 this.yv = Math.abs(this.yv);
+                Game.level.camera.shake(this.xv, this.yv * 2);
             }
             if (this.y < Game.level.blocks[c].y) {
                 this.yv = -Math.abs(this.yv);
+                Game.level.camera.shake(this.xv, this.yv * 2);
             }
         }
     }
@@ -508,7 +573,7 @@ class Ball {
     collides(): number {
         for (var i in Game.level.blocks) {
             var b = Game.level.blocks[i];
-            if (b.colour === 0) continue;
+            if (b.color === 0) continue;
             if (this.x + this.r > b.x && this.x - this.r < b.x + Block.width && this.y + this.r > b.y && this.y - this.r < b.y + Block.height) {
                 Game.level.blocks[i].destroy(this);
                 return i;
@@ -523,14 +588,15 @@ class Ball {
         do {
             this.xv = Math.floor(Math.random() * 10) - 5;
         } while (this.xv >= -1 && this.xv <= 1);
-
     }
 
     render() {
+        var x = this.x - this.r + Game.level.camera.xo;
+        var y = this.y - this.r + Game.level.camera.yo;
         if (this.slices < 60 && this.slices % 20 < 10) { // blinking effect when slicing effect is about to wear off
-            Game.context.drawImage(this.img, this.x - this.r, this.y - this.r);
+            Game.context.drawImage(this.img, x, y);
         } else {
-            Game.context.drawImage(this.img_slicing, this.x - this.r, this.y - this.r);
+            Game.context.drawImage(this.img_slicing, x, y);
         }
     }
 
@@ -544,8 +610,14 @@ class Mouse {
     static rdown: boolean = false;
 
     static update(event: MouseEvent) {
+        var px = Mouse.x, 
+            py = Mouse.y;
         Mouse.x = event.clientX - Game.canvasClientRect.left;
         Mouse.y = event.clientY - Game.canvasClientRect.top;
+        
+        if (Game.level && !Game.level.player.usingMouseInput && !Game.paused && (Mouse.x != px || Mouse.y != py)) {
+            Game.level.player.usingMouseInput = true;
+        }
     }
 
     static down(event: MouseEvent) {
@@ -580,6 +652,7 @@ class Sound {
         Sound.life = <HTMLAudioElement>get('lifeSound');
 
         Sound.volumeSlider = <HTMLInputElement>get('volumeSlider');
+        Sound.changeVolume();
     }
 
     static changeVolume() {
@@ -598,6 +671,229 @@ class Sound {
     }
 }
 
+class ParticleGenerator {
+    particles: Particle[];
+
+    constructor(x: number, y: number, color: Color) {
+        this.particles = new Array<Particle>();
+
+        var size = new Size();
+        size.w = size.h = 6;
+
+        for (var i = 0; i < 25; ++i) {
+            this.particles.push(new Particle(this, PARTICLE_TYPE.SQUARE, size, color, x, y, Math.random() * 10 - 5, Math.random() * 10 - 5, 0, 0.5, 45));
+        }
+    }
+
+    remove(particle: Particle) {
+        this.particles.splice(this.particles.indexOf(particle));
+    }
+
+    update() {
+        for (var p in this.particles) {
+            this.particles[p].update();
+        }
+    }
+
+    render() {
+        for (var p in this.particles) {
+            this.particles[p].render();
+        }
+    }
+}
+
+enum PARTICLE_TYPE {
+    CIRCLE, SQUARE
+}
+
+class Size {
+    w: number;
+    h: number;
+    r: number;
+}
+
+class Color {
+    r: number;
+    g: number;
+    b: number;
+
+    constructor(r?: number, g?: number, b?: number) {
+        this.r = r || 0;
+        this.g = g || 0;
+        this.b = b || 0;
+    }
+
+    static convert(c: number): Color {
+        switch(c) {
+            case 1:
+                return new Color(158, 158, 158);
+            case 2:
+                return new Color(172, 0, 0);
+            case 3:
+                return new Color(172, 105, 0);
+            case 4:
+                return new Color(182, 176, 0);
+            case 5:
+                return new Color(52, 172, 0);
+            case 6:
+                return new Color(0, 172, 170);
+            case 7:
+                return new Color(0, 103, 182);
+            case 8:
+                return new Color(68, 0, 172);
+            case 9:
+                return new Color(180, 0, 182);
+            default:
+                return new Color(0, 0, 0);
+        }
+    }
+}
+
+class Particle {
+
+    generator: ParticleGenerator;
+    type: PARTICLE_TYPE;
+    xa: number;
+    ya: number;
+    xv: number;
+    yv: number;
+    x: number;
+    y: number;
+    size: Size;
+    life: number; // Number of ticks until this particle dissapears
+    startingLife: number;
+    color: Color;
+
+    constructor(generator: ParticleGenerator, type: PARTICLE_TYPE, size: Size, color: Color, x: number, y: number, xv: number, yv: number, xa: number, ya: number, life: number) {
+        this.generator = generator;
+        this.type = type;
+        this.size = size;
+        this.color = color;
+        this.x = x;
+        this.y = y;
+        this.xv = xv;
+        this.yv = yv;
+        this.xa = xa;
+        this.ya = ya;
+        this.life = life;
+        this.startingLife = life;
+    }
+
+    update() {
+        this.life--;
+        if (this.life < 0) {
+            this.generator.remove(this);
+            return;
+        }
+
+        this.xv += this.xa;
+        this.yv += this.ya;
+
+        this.x += this.xv;
+        this.y += this.yv;
+    }
+
+    render() {
+        var x = this.x + Game.level.camera.xo;
+        var y = this.y + Game.level.camera.yo;
+        Game.context.fillStyle = "rgba(" + this.color.r + ", " + this.color.g + ", " + this.color.b + ", " + (this.life / this.startingLife) + ")";
+        if (this.type === PARTICLE_TYPE.SQUARE) {
+            Game.context.fillRect(x, y, this.size.w, this.size.h);
+        } else if (this.type === PARTICLE_TYPE.CIRCLE) {
+            Game.context.arc(x, y, this.size.r, 0, 0);
+        }
+    }
+}
+
+class Camera {
+    xo: number;
+    yo: number;
+
+    shakeX: number;
+    shakeY: number;
+
+    constructor() {
+        this.xo = 0;
+        this.yo = 0;
+        this.shakeX = 0;
+        this.shakeY = 0;
+    }
+
+    update() {
+        this.shakeX *= 0.90;
+        this.shakeY *= 0.90;
+
+        if (this.shakeX < 0.001) {
+            this.shakeX = 0;
+        }
+        if (this.shakeY < 0.001) {
+            this.shakeY = 0;
+        }
+
+        this.xo = this.shakeX;
+        this.yo = this.shakeY;
+    }
+
+    shake(amountX: number, amountY: number) {
+        this.shakeX = (Math.random() * amountX) * (Math.random() > 0.5 ? 1 : -1);
+        this.shakeY = (Math.random() * amountY) * (Math.random() > 0.5 ? 1 : -1);
+    }
+}
+
+// class BallCollideParticle extends Particle {
+    
+//     constructor(generator: ParticleGenerator, type: PARTICLE_TYPE, size: Size, x: number, y: number, xv: number, yv: number, xa: number, ya: number, life: number) {
+//         super(generator, type, size, x, y, xv, ya, xa, ya, life);
+
+//     }
+
+//     render() {
+
+//     }
+// }
+
+class Keyboard {
+    static KEYS = {
+        BACKSPACE: 8, TAB: 9, RETURN: 13, ESC: 27, SPACE: 32, PAGEUP: 33, PAGEDOWN: 34, END: 35, HOME: 36, LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, INSERT: 45, DELETE: 46, ZERO: 48, ONE: 49, TWO: 50, THREE: 51, FOUR: 52, FIVE: 53, SIX: 54, SEVEN: 55, EIGHT: 56, NINE: 57, A: 65, B: 66, C: 67, D: 68, E: 69, F: 70, G: 71, H: 72, I: 73, J: 74, K: 75, L: 76, M: 77, N: 78, O: 79, P: 80, Q: 81, R: 82, S: 83, T: 84, U: 85, V: 86, W: 87, X: 88, Y: 89, Z: 90, TILDE: 192, SHIFT: 999
+    };
+    
+    static keysdown = [];
+
+    static keychange(event: KeyboardEvent, down: boolean): void {
+        var keycode = event.keyCode ? event.keyCode : event.which;
+        Keyboard.keysdown[keycode] = down;
+
+        if (down && keycode === Keyboard.KEYS.ESC) {
+            Game.togglePause();
+            if (Game.level.ballstill) Game.paused = false;
+        }
+
+        if (keycode === Keyboard.KEYS.A || keycode === Keyboard.KEYS.D || keycode === Keyboard.KEYS.LEFT || keycode === Keyboard.KEYS.RIGHT) {
+            Game.paused = false;
+            Game.level.player.usingMouseInput = false;
+
+        }
+        if (keycode === Keyboard.KEYS.SPACE) {
+            if (Game.level.ballstill) {
+                Game.level.balls[0].shoot();
+            }
+        }
+    }
+}
+
+function keydown(event: KeyboardEvent) {
+    Keyboard.keychange(event, true);
+
+    if (event.keyCode === Keyboard.KEYS.SPACE) return false;
+}
+
+function keyup(event: KeyboardEvent) {
+    Keyboard.keychange(event, false);
+}
+
+window.onkeydown = keydown;
+window.onkeyup = keyup;
+
 function toggleFooter(which: string) {
     var front = '1',
         back = '0',
@@ -612,15 +908,6 @@ function toggleFooter(which: string) {
         }
     }
 }
-
-function keydown(event: KeyboardEvent) {
-    if (event.keyCode === 27 || event.which === 27) {
-        Game.togglePause();
-        if (Game.level.ballstill) Game.paused = false;
-    }
-}
-
-window.onkeydown = keydown;
 
 window.onload = function() {
     Block.loadImages();

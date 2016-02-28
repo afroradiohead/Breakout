@@ -3,11 +3,15 @@
     Feature list:
         -[x] Keyboard input
         -[x] Pause overlay
-        -[ ] Particles
-        -[ ] Screenshake
-        -[ ] Animations
+        -[x] Particles
+        -[x] Screenshake
+        -[x] Animate hearts
+        -[x] Ball trail
+        -[x] Drop tiles down from top smoothly
+        -[x] Use variables for fonts
+        -[x] Reimplement different starting colour layouts
+        -[ ] Render ball tails even after ball deaths
         -[ ] Incremental sounds (to reward combos)
-        -[ ] Drop tiles down from top smoothly
 */
 
 function get(what: string): HTMLElement {
@@ -20,6 +24,7 @@ class Game {
 
     static canvas: HTMLCanvasElement;
     static context: CanvasRenderingContext2D; // context for the gameCanvas
+    static infoCanvas: HTMLCanvasElement;
     static infoContext: CanvasRenderingContext2D; // context for the infoCanvas
     static canvasClientRect = { left: 0, top: 0 }; // used by the mouse class to determine mouse's relative position to the canvas
 
@@ -30,9 +35,20 @@ class Game {
     static lastRender: number;
     static tickLength: number;
 
+    static font36 = "36px Poiret One";
+    static font30 = "30px Poiret One";
+    static font28 = "28px Poiret One";
+    static font20 = "20px Poiret One";
+
     static init() {
         Game.canvas = <HTMLCanvasElement>get('gameCanvas');
+        Game.canvas.width = 720;
+        Game.canvas.height = 480;
         Game.context = Game.canvas.getContext('2d');
+
+        Game.infoCanvas = <HTMLCanvasElement>get('infoCanvas');
+        Game.infoCanvas.width = 720;
+        Game.infoCanvas.height = 80;
         Game.infoContext = (<HTMLCanvasElement>get('infoCanvas')).getContext('2d');
         Game.canvasClientRect = Game.canvas.getBoundingClientRect();
         Game.SIZE = { w: Game.canvas.width, h: Game.canvas.height };
@@ -78,9 +94,11 @@ class Game {
         Game.context.fillStyle = "#0e132e";
         Game.context.fillRect(0, 0, Game.SIZE.w, Game.SIZE.h);
 
+        // Background colour
         Game.infoContext.fillStyle = "#262d59";
         Game.infoContext.fillRect(0, 0, Game.iSIZE.w, Game.iSIZE.h);
 
+        // Black line
         Game.infoContext.fillStyle = "#001";
         Game.infoContext.fillRect(0, Game.iSIZE.h - 2, Game.iSIZE.w, 2);
 
@@ -113,6 +131,7 @@ class Level {
     gamestate: number;
 
     heartImg: HTMLImageElement;
+    heartScale = 1.0; // Used to draw hearts extra large when first acquired
 
     particleGenerators: ParticleGenerator[];
 
@@ -130,6 +149,8 @@ class Level {
         this.heartImg.src = "res/heart.png";
 
         this.particleGenerators = new Array<ParticleGenerator>();
+
+        this.camera.shake(0, -2000); // Drop tiles in from top of screen
 
         this.reset();
     }
@@ -151,8 +172,8 @@ class Level {
 
             if (this.checkBoardWon()) {
                 this.deathcount--;
-                this.die();
                 this.gamestate = Level.gamestates.won;
+                this.die();
             }
         } else {
             if (Mouse.ldown || Keyboard.keysdown[Keyboard.KEYS.SPACE]) {
@@ -175,8 +196,6 @@ class Level {
     }
 
     die() {
-        var i;
-
         this.balls = new Array<Ball>(1);
         this.balls[0] = new Ball();
         this.player.reset();
@@ -184,6 +203,12 @@ class Level {
         this.deathcount++;
         if (this.deathcount >= 3) {
             this.gamestate = Level.gamestates.lost;
+        }
+
+        // If we've won, we're calling this just to reset things
+        if (this.gamestate != Level.gamestates.won) {
+            // Render the last heart shrinking into oblivion
+            this.heartScale = 0.99;
         }
     }
 
@@ -199,7 +224,7 @@ class Level {
             }
         }
 
-        this.camera.shake(this.balls[0].xv * 2, this.balls[0].yv * 2);
+        this.camera.shake(ball.xv * 4, ball.yv * 4);
     }
 
     reset() {
@@ -214,13 +239,57 @@ class Level {
         this.player.reset();
 
         this.blocks = new Array(Level.width * Level.height);
+        var rand = Math.floor(Math.random() * 5);
         for (i = 0; i < this.blocks.length; i++) {
-            this.blocks[i] = new Block((i % Level.width) * 100 + this.xo, Math.floor(i / Level.width) * 35 + this.yo, this.getColor(i));
+            this.blocks[i] = new Block((i % Level.width) * 100 + this.xo, Math.floor(i / Level.width) * 35 + this.yo, this.getColor(i, rand));
         }
     }
 
-    getColor(i: number): number {
-        return (i%9) + 1;
+    /** Returns a value in the range [1-9] inclusive */
+    getColor(i: number, type?: number): number {
+        if (!type) {
+            type = Math.floor(Game.lastTick % 5);
+            console.log(Game.lastTick);
+        } else {
+            type %= 5;
+        }
+
+        var x = i % Level.width;
+        var y = Math.floor(i / Level.width);
+        switch (type) {
+            case 0:
+            {
+                // // DISTANCE from (0,0)
+                var dist = Math.sqrt(x*x + y*y);
+                var maxDist = Math.sqrt(Level.width * Level.width + Level.height * Level.height);
+                return Math.floor(dist / maxDist * 9) + 2; // add two so we don't have any greys
+            }
+            case 1:
+            {    // ORDERED
+                return (i % 9) + 1;
+            }
+            case 2:
+            {
+                // RANDOM
+                return Math.floor(Math.random() * 9 + 1);
+            }
+            case 3:
+            {
+                // DISTANCE from (width, 0)
+                var dist = Math.sqrt((Level.width-x)*(Level.width-x) + y*y);
+                var maxDist = Level.width + Math.sqrt(0 + Level.height * Level.height);
+
+                return (Math.floor((dist / maxDist) * 9) + 2);
+            }
+            case 4:
+            {
+                // CHECKERBOARD
+                // Use the last games tick time (essentially a random number) to
+                // vary the colours, but maintain consistency for each time this is
+                // called in one frame
+                return ((i + (y % 2 === 0 ? 0 : 1)) % 2) * 2 + Game.lastTick % 7 + 1;
+            }
+        }
     }
 
     render() {
@@ -236,19 +305,26 @@ class Level {
             else this.blocks[i].render();
         }
 
+        this.renderRemainingLives();
+
+        for (var g in this.particleGenerators) {
+            this.particleGenerators[g].render();
+        }
+
+        // Game over / Game won / Paused overlays
         if (this.gamestate === Level.gamestates.lost || this.gamestate === Level.gamestates.won) {
             drawHorizontallyCenteredRectangle(112, 220, 100);
             drawHorizontallyCenteredRectangle(252, 160, 30);
 
             Game.context.fillStyle = "white";
-            Game.context.font = "36px Poiret One";
+            Game.context.font = Game.font36;
             var msg = "Game Over!";
             Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 150);
-            Game.context.font = "28px Poiret One";
+            Game.context.font = Game.font28;
 
             msg = "You " + (this.gamestate === Level.gamestates.won ? "Won!" : "Lost!");
             Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 200);
-            Game.context.font = "20px Poiret One";
+            Game.context.font = Game.font20;
 
             if (Game.lastTick % 800 > 400) Game.context.fillStyle = "grey";
             msg = "Click to restart";
@@ -260,10 +336,10 @@ class Level {
             drawHorizontallyCenteredRectangle(248, 230, 35);
 
             Game.context.fillStyle = "white";
-            Game.context.font = "36px Poiret One";
+            Game.context.font = Game.font36;
             var msg = "Paused";
             Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 150);
-            Game.context.font = "28px Poiret One";
+            Game.context.font = Game.font28;
 
             if (Game.lastTick % 800 > 400) Game.context.fillStyle = "grey";
             msg = "Click to unpause";
@@ -271,17 +347,48 @@ class Level {
         } else if (this.ballstill) {
             if (Game.lastTick % 1000 > 500) Game.context.fillStyle = "grey";
             else Game.context.fillStyle = "white";
-            Game.context.font = "30px Poiret One";
+            Game.context.font = Game.font30;
             var msg = "Click to begin";
             Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 380);
         }
+    }
+
+    renderRemainingLives() {
+        var i;
 
         for (i = 0; i < 3 - this.deathcount; i++) {
-            Game.infoContext.drawImage(this.heartImg, 25 + i * 40, Game.iSIZE.h / 2 - 16);
+            var scale;
+            // We just gained a heart and are going towards 1.0
+            // Render the last gained heart larger
+            if ((this.heartScale > 1.0) && (i === (3 - this.deathcount) - 1)) {
+                scale = this.heartScale;
+                var difference = Math.abs(this.heartScale - 1.0);
+                this.heartScale -= (difference * 0.08);
+                if (this.heartScale < 1.0001) {
+                    this.heartScale = 1.0;
+                }
+            } else {
+                scale = 1.0;
+            }
+            var width = this.heartImg.width * scale;
+            var height = this.heartImg.height * scale;
+            var x = (35 + i * 40) - (width / 2.0);
+            var y = (Game.iSIZE.h / 2) - (height / 2.0);
+            Game.infoContext.drawImage(this.heartImg, x, y, width, height);
         }
-
-        for (var g in this.particleGenerators) {
-            this.particleGenerators[g].render();
+        // Render last heart shrinking
+        if (this.heartScale < 1.0) {
+            var difference = Math.abs(this.heartScale - 1.0);
+            this.heartScale -= (difference * 0.3);
+            if (this.heartScale < 0.0001) {
+                this.heartScale = 1.0;
+                return;
+            }
+            var width = this.heartImg.width * this.heartScale;
+            var height = this.heartImg.height * this.heartScale;
+            var x = (35 + (3 - this.deathcount) * 40) - (width / 2.0);
+            var y = (Game.iSIZE.h / 2) - (height / 2.0);
+            Game.infoContext.drawImage(this.heartImg, x, y, width, height);
         }
     }
 }
@@ -304,7 +411,6 @@ class Block {
 
     static block_images = Array<HTMLImageElement>();
     color: number; // an index in Block.block_images array
-
 
     static powerups = ["", "bomb", "bigger_paddle", "slice_ball", "extra_ball", "extra_life"];
     static powerup_images = Array<HTMLImageElement>();
@@ -361,6 +467,7 @@ class Block {
             case "":
                 break;
             case "bomb":
+                this.powerup = 0; // prevent infinite loop of recursion
                 Game.level.destroySquare(this.x, this.y, ball);
                 break;
             case "bigger_paddle":
@@ -375,13 +482,11 @@ class Block {
                 break;
             case "extra_life":
                 Game.level.deathcount--;
+                Game.level.heartScale = 3.0;
                 break;
         }
 
-        Game.level.particleGenerators.push(
-            new ParticleGenerator(this.x + Block.width / 2,
-                                  this.y,
-                                  Color.convert(this.color)));
+        Game.level.particleGenerators.push(new ParticleGenerator(this.x + Block.width / 2, this.y, Color.convert(this.color)));
 
         this.color = 0;
     }
@@ -392,7 +497,6 @@ class Block {
             Game.context.drawImage(Block.powerup_images[this.powerup], this.x + Block.width / 2 - 7 + Game.level.camera.xo, this.y + 3 + Game.level.camera.yo);
         }
     }
-
 }
 
 class Paddle {
@@ -462,7 +566,23 @@ class Paddle {
     }
 
     render() {
-        Game.context.drawImage(this.img, this.x, this.y, this.width, this.height);
+        Game.context.drawImage(this.img, this.x + Game.level.camera.xo, this.y + Game.level.camera.yo, this.width, this.height);
+    }
+}
+
+class PreviousPosition {
+    x: number;
+    y: number;
+    green: boolean;
+
+    constructor(x: number, y: number, green?: boolean) {
+        this.x = x;
+        this.y = y;
+        this.green = green || false;
+    }
+
+    equals(pos: PreviousPosition): boolean {
+        return (this.x === pos.x && this.y === pos.y && this.green === pos.green);
     }
 }
 
@@ -473,10 +593,19 @@ class Ball {
     xv: number;
     yv: number;
     maxXv: number = 8;
+
     r: number;
+
     img: HTMLImageElement;
     img_slicing: HTMLImageElement;
+    /** How many ticks are left in the green "slicing" powerup
+        if > 0, the ball is rendered green and doesn't bounce when
+        coming in contact with blocks */
     slices: number = 0;
+
+    previousPositions: PreviousPosition[];
+    numberOfPreviousPositions: number = 50;
+    previousPositionIndex: number = 0;
 
     constructor() {
         this.reset();
@@ -486,6 +615,8 @@ class Ball {
 
         this.img_slicing = new Image();
         this.img_slicing.src = "res/ball_slicing.png";
+
+        this.previousPositions = new Array<PreviousPosition>();
     }
 
     reset() {
@@ -500,12 +631,15 @@ class Ball {
         this.x += this.xv;
         this.y += this.yv;
 
-        this.slices--;
+        this.addPosition(new PreviousPosition(this.x, this.y, !(this.slices < 60 && this.slices % 20 < 10)));
+
+        if (this.slices > 0) {
+            this.slices--;
+        }
 
         // check for colisions with player paddle
         if (this.x + this.r > player.x && this.x - this.r < player.x + player.width && this.y + this.r > player.y && this.y - this.r < player.y + player.height) {
             Sound.play(Sound.blip);
-            Game.level.camera.shake(this.xv, this.yv);
             this.yv = -this.yv;
             this.y = player.y - this.r;
             this.xv += ((this.x - player.x - player.width / 2) / 100) * 5;
@@ -517,19 +651,19 @@ class Ball {
         // check for colisions with window edges
         if (this.x > Game.SIZE.w - this.r) {
             Sound.play(Sound.bloop);
-            Game.level.camera.shake(this.xv * 3, this.yv);
+            Game.level.camera.shake(this.xv * 2, 0);
             this.xv = -this.xv;
             this.x = Game.SIZE.w - this.r;
         }
         if (this.x < this.r) {
             Sound.play(Sound.bloop);
-            Game.level.camera.shake(this.xv * 3, this.yv);
+            Game.level.camera.shake(this.xv * 2, 0);
             this.xv = -this.xv;
             this.x = this.r;
         }
         if (this.y < this.r) {
             Sound.play(Sound.bloop);
-            Game.level.camera.shake(this.xv, this.yv * 3);
+            Game.level.camera.shake(0, this.yv * 2);
             this.yv = -this.yv;
             this.y = this.r;
         }
@@ -552,21 +686,38 @@ class Ball {
             }
 
             if (this.x > Game.level.blocks[c].x + Block.width) {
+                Game.level.camera.shake(this.xv, 0);
                 this.xv = Math.abs(this.xv);
-                Game.level.camera.shake(this.xv * 2, this.yv);
             }
             if (this.x < Game.level.blocks[c].x) {
+                Game.level.camera.shake(this.xv, 0);
                 this.xv = -Math.abs(this.xv);
-                Game.level.camera.shake(this.xv * 2, this.yv);
             }
             if (this.y > Game.level.blocks[c].y + Block.height) {
+                Game.level.camera.shake(0, this.yv);
                 this.yv = Math.abs(this.yv);
-                Game.level.camera.shake(this.xv, this.yv * 2);
             }
             if (this.y < Game.level.blocks[c].y) {
+                Game.level.camera.shake(0, this.yv);
                 this.yv = -Math.abs(this.yv);
-                Game.level.camera.shake(this.xv, this.yv * 2);
             }
+        }
+    }
+
+    addPosition(pos: PreviousPosition) {
+        if (this.previousPositions.length === this.numberOfPreviousPositions) {
+            if (this.previousPositions[this.previousPositionIndex] === pos) {
+                // Don't add the same position twice
+                return;
+            }
+            this.previousPositions[this.previousPositionIndex++] = pos;
+            this.previousPositionIndex %= this.numberOfPreviousPositions;
+        } else {
+            if (this.previousPositions.length > 0 && this.previousPositions[this.previousPositions.length - 1].equals(pos)) {
+                // Don't add the same position twice
+                return;
+            }
+            this.previousPositions.push(pos);
         }
     }
 
@@ -576,7 +727,7 @@ class Ball {
             if (b.color === 0) continue;
             if (this.x + this.r > b.x && this.x - this.r < b.x + Block.width && this.y + this.r > b.y && this.y - this.r < b.y + Block.height) {
                 Game.level.blocks[i].destroy(this);
-                return i;
+                return parseInt(i);
             }
         }
         return -1;
@@ -591,6 +742,26 @@ class Ball {
     }
 
     render() {
+        // Render ball trail
+        for (var i = this.previousPositionIndex - 1; i > this.previousPositionIndex - this.previousPositions.length; i--) {
+            var value = i + (this.previousPositions.length - this.previousPositionIndex) + 1;
+            Game.context.globalAlpha = (value / this.previousPositions.length) / 4;
+            var index = i;
+            if (index < 0) {
+                index += this.previousPositions.length;
+            }
+            var pos = this.previousPositions[index];
+            var x = pos.x - this.r + Game.level.camera.xo;
+            var y = pos.y - this.r + Game.level.camera.yo;
+
+            if (this.previousPositions[index].green) {
+                Game.context.drawImage(this.img_slicing, x, y);
+            } else {
+                Game.context.drawImage(this.img, x, y);
+            }
+        }
+        Game.context.globalAlpha = 1.0;
+
         var x = this.x - this.r + Game.level.camera.xo;
         var y = this.y - this.r + Game.level.camera.yo;
         if (this.slices < 60 && this.slices % 20 < 10) { // blinking effect when slicing effect is about to wear off
@@ -599,7 +770,6 @@ class Ball {
             Game.context.drawImage(this.img_slicing, x, y);
         }
     }
-
 }
 
 class Mouse {
@@ -610,11 +780,11 @@ class Mouse {
     static rdown: boolean = false;
 
     static update(event: MouseEvent) {
-        var px = Mouse.x, 
+        var px = Mouse.x,
             py = Mouse.y;
         Mouse.x = event.clientX - Game.canvasClientRect.left;
         Mouse.y = event.clientY - Game.canvasClientRect.top;
-        
+
         if (Game.level && !Game.level.player.usingMouseInput && !Game.paused && (Mouse.x != px || Mouse.y != py)) {
             Game.level.player.usingMouseInput = true;
         }
@@ -823,10 +993,10 @@ class Camera {
         this.shakeX *= 0.90;
         this.shakeY *= 0.90;
 
-        if (this.shakeX < 0.001) {
+        if (this.shakeX < 0.001 && this.shakeX > -0.001) {
             this.shakeX = 0;
         }
-        if (this.shakeY < 0.001) {
+        if (this.shakeY < 0.001 && this.shakeY > -0.001) {
             this.shakeY = 0;
         }
 
@@ -835,28 +1005,16 @@ class Camera {
     }
 
     shake(amountX: number, amountY: number) {
-        this.shakeX = (Math.random() * amountX) * (Math.random() > 0.5 ? 1 : -1);
-        this.shakeY = (Math.random() * amountY) * (Math.random() > 0.5 ? 1 : -1);
+        this.shakeX += (Math.random() * (amountX / 2) + (amountX / 2));
+        this.shakeY += (Math.random() * (amountY / 2) + (amountX / 2));
     }
 }
-
-// class BallCollideParticle extends Particle {
-    
-//     constructor(generator: ParticleGenerator, type: PARTICLE_TYPE, size: Size, x: number, y: number, xv: number, yv: number, xa: number, ya: number, life: number) {
-//         super(generator, type, size, x, y, xv, ya, xa, ya, life);
-
-//     }
-
-//     render() {
-
-//     }
-// }
 
 class Keyboard {
     static KEYS = {
         BACKSPACE: 8, TAB: 9, RETURN: 13, ESC: 27, SPACE: 32, PAGEUP: 33, PAGEDOWN: 34, END: 35, HOME: 36, LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, INSERT: 45, DELETE: 46, ZERO: 48, ONE: 49, TWO: 50, THREE: 51, FOUR: 52, FIVE: 53, SIX: 54, SEVEN: 55, EIGHT: 56, NINE: 57, A: 65, B: 66, C: 67, D: 68, E: 69, F: 70, G: 71, H: 72, I: 73, J: 74, K: 75, L: 76, M: 77, N: 78, O: 79, P: 80, Q: 81, R: 82, S: 83, T: 84, U: 85, V: 86, W: 87, X: 88, Y: 89, Z: 90, TILDE: 192, SHIFT: 999
     };
-    
+
     static keysdown = [];
 
     static keychange(event: KeyboardEvent, down: boolean): void {
@@ -884,6 +1042,7 @@ class Keyboard {
 function keydown(event: KeyboardEvent) {
     Keyboard.keychange(event, true);
 
+    // Prevent the page from scrolling down on space press
     if (event.keyCode === Keyboard.KEYS.SPACE) return false;
 }
 
@@ -907,6 +1066,18 @@ function toggleFooter(which: string) {
             about.className = 'short';
         }
     }
+}
+
+window.onblur = function() {
+    Game.paused = true;
+}
+
+// window.onfocus = function() {
+//     Game.paused = false;
+// }
+
+window.onresize = function() {
+    Game.canvasClientRect = Game.canvas.getBoundingClientRect();
 }
 
 window.onload = function() {

@@ -1,13 +1,3 @@
-/*
-    Feature list:
-        -[x] Keyboard input
-        -[x] Pause overlay
-        -[ ] Particles
-        -[ ] Screenshake
-        -[ ] Animations
-        -[ ] Incremental sounds (to reward combos)
-        -[ ] Drop tiles down from top smoothly
-*/
 function get(what) {
     return document.getElementById(what);
 }
@@ -16,13 +6,18 @@ var Game = (function () {
     }
     Game.init = function () {
         Game.canvas = get('gameCanvas');
+        Game.canvas.width = 720;
+        Game.canvas.height = 480;
         Game.context = Game.canvas.getContext('2d');
+        Game.infoCanvas = get('infoCanvas');
+        Game.infoCanvas.width = 720;
+        Game.infoCanvas.height = 80;
         Game.infoContext = get('infoCanvas').getContext('2d');
         Game.canvasClientRect = Game.canvas.getBoundingClientRect();
         Game.SIZE = { w: Game.canvas.width, h: Game.canvas.height };
         Game.iSIZE = { w: Game.infoContext.canvas.width, h: Game.infoContext.canvas.height };
-        Game.lastTick = Math.floor(performance.now()); // we'll only ever be adding whole numbers to this, no point in storing floating point value
-        Game.lastRender = Game.lastTick; //Pretend the first draw was on first update.
+        Game.lastTick = Math.floor(performance.now());
+        Game.lastRender = Game.lastTick;
         Game.tickLength = 17;
         Game.level = new Level();
         Game.loop(performance.now());
@@ -41,7 +36,7 @@ var Game = (function () {
     };
     Game.queueUpdates = function (numTicks) {
         for (var i = 0; i < numTicks; i++) {
-            Game.lastTick = Game.lastTick + Game.tickLength; //Now lastTick is this tick.
+            Game.lastTick = Game.lastTick + Game.tickLength;
             Game.update(Game.lastTick);
         }
     };
@@ -60,23 +55,29 @@ var Game = (function () {
     Game.togglePause = function () {
         Game.paused = !Game.paused;
     };
-    Game.canvasClientRect = { left: 0, top: 0 }; // used by the mouse class to determine mouse's relative position to the canvas
+    Game.canvasClientRect = { left: 0, top: 0 };
     Game.paused = false;
+    Game.font36 = "36px Poiret One";
+    Game.font30 = "30px Poiret One";
+    Game.font28 = "28px Poiret One";
+    Game.font20 = "20px Poiret One";
     return Game;
-})();
+}());
 var Level = (function () {
     function Level() {
-        this.ballstill = true; // Is true at the start of the game, and after the player loses a life. Gets set to false on mouse down.
+        this.ballstill = true;
         this.deathcount = 0;
+        this.heartScale = 1.0;
         this.player = new Paddle();
         this.balls = new Array(1);
         this.balls[0] = new Ball();
         this.camera = new Camera();
-        this.xo = 70; // keep these constant for now
+        this.xo = 70;
         this.yo = 25;
         this.heartImg = new Image();
         this.heartImg.src = "res/heart.png";
         this.particleGenerators = new Array();
+        this.camera.shake(0, -2000);
         this.reset();
     }
     Level.prototype.update = function () {
@@ -95,8 +96,8 @@ var Level = (function () {
             }
             if (this.checkBoardWon()) {
                 this.deathcount--;
-                this.die();
                 this.gamestate = Level.gamestates.won;
+                this.die();
             }
         }
         else {
@@ -117,7 +118,6 @@ var Level = (function () {
         return true;
     };
     Level.prototype.die = function () {
-        var i;
         this.balls = new Array(1);
         this.balls[0] = new Ball();
         this.player.reset();
@@ -125,6 +125,9 @@ var Level = (function () {
         this.deathcount++;
         if (this.deathcount >= 3) {
             this.gamestate = Level.gamestates.lost;
+        }
+        if (this.gamestate != Level.gamestates.won) {
+            this.heartScale = 0.99;
         }
     };
     Level.prototype.destroySquare = function (xp, yp, ball) {
@@ -140,7 +143,7 @@ var Level = (function () {
                 this.blocks[xx + yy * Level.width].destroy(ball);
             }
         }
-        this.camera.shake(this.balls[0].xv * 2, this.balls[0].yv * 2);
+        this.camera.shake(ball.xv * 4, ball.yv * 4);
     };
     Level.prototype.reset = function () {
         var i;
@@ -152,12 +155,47 @@ var Level = (function () {
         this.balls[0] = new Ball();
         this.player.reset();
         this.blocks = new Array(Level.width * Level.height);
+        var rand = Math.floor(Math.random() * 5);
         for (i = 0; i < this.blocks.length; i++) {
-            this.blocks[i] = new Block((i % Level.width) * 100 + this.xo, Math.floor(i / Level.width) * 35 + this.yo, this.getColor(i));
+            this.blocks[i] = new Block((i % Level.width) * 100 + this.xo, Math.floor(i / Level.width) * 35 + this.yo, this.getColor(i, rand));
         }
     };
-    Level.prototype.getColor = function (i) {
-        return (i % 9) + 1;
+    Level.prototype.getColor = function (i, type) {
+        if (!type) {
+            type = Math.floor(Game.lastTick % 5);
+            console.log(Game.lastTick);
+        }
+        else {
+            type %= 5;
+        }
+        var x = i % Level.width;
+        var y = Math.floor(i / Level.width);
+        switch (type) {
+            case 0:
+                {
+                    var dist = Math.sqrt(x * x + y * y);
+                    var maxDist = Math.sqrt(Level.width * Level.width + Level.height * Level.height);
+                    return Math.floor(dist / maxDist * 9) + 2;
+                }
+            case 1:
+                {
+                    return (i % 9) + 1;
+                }
+            case 2:
+                {
+                    return Math.floor(Math.random() * 9 + 1);
+                }
+            case 3:
+                {
+                    var dist = Math.sqrt((Level.width - x) * (Level.width - x) + y * y);
+                    var maxDist = Level.width + Math.sqrt(0 + Level.height * Level.height);
+                    return (Math.floor((dist / maxDist) * 9) + 2);
+                }
+            case 4:
+                {
+                    return ((i + (y % 2 === 0 ? 0 : 1)) % 2) * 2 + Game.lastTick % 7 + 1;
+                }
+        }
     };
     Level.prototype.render = function () {
         var i;
@@ -171,17 +209,21 @@ var Level = (function () {
             else
                 this.blocks[i].render();
         }
+        this.renderRemainingLives();
+        for (var g in this.particleGenerators) {
+            this.particleGenerators[g].render();
+        }
         if (this.gamestate === Level.gamestates.lost || this.gamestate === Level.gamestates.won) {
             drawHorizontallyCenteredRectangle(112, 220, 100);
             drawHorizontallyCenteredRectangle(252, 160, 30);
             Game.context.fillStyle = "white";
-            Game.context.font = "36px Poiret One";
+            Game.context.font = Game.font36;
             var msg = "Game Over!";
             Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 150);
-            Game.context.font = "28px Poiret One";
+            Game.context.font = Game.font28;
             msg = "You " + (this.gamestate === Level.gamestates.won ? "Won!" : "Lost!");
             Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 200);
-            Game.context.font = "20px Poiret One";
+            Game.context.font = Game.font20;
             if (Game.lastTick % 800 > 400)
                 Game.context.fillStyle = "grey";
             msg = "Click to restart";
@@ -191,10 +233,10 @@ var Level = (function () {
             drawHorizontallyCenteredRectangle(112, 220, 50);
             drawHorizontallyCenteredRectangle(248, 230, 35);
             Game.context.fillStyle = "white";
-            Game.context.font = "36px Poiret One";
+            Game.context.font = Game.font36;
             var msg = "Paused";
             Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 150);
-            Game.context.font = "28px Poiret One";
+            Game.context.font = Game.font28;
             if (Game.lastTick % 800 > 400)
                 Game.context.fillStyle = "grey";
             msg = "Click to unpause";
@@ -205,22 +247,51 @@ var Level = (function () {
                 Game.context.fillStyle = "grey";
             else
                 Game.context.fillStyle = "white";
-            Game.context.font = "30px Poiret One";
+            Game.context.font = Game.font30;
             var msg = "Click to begin";
             Game.context.fillText(msg, Game.SIZE.w / 2 - Game.context.measureText(msg).width / 2, 380);
         }
+    };
+    Level.prototype.renderRemainingLives = function () {
+        var i;
         for (i = 0; i < 3 - this.deathcount; i++) {
-            Game.infoContext.drawImage(this.heartImg, 25 + i * 40, Game.iSIZE.h / 2 - 16);
+            var scale;
+            if ((this.heartScale > 1.0) && (i === (3 - this.deathcount) - 1)) {
+                scale = this.heartScale;
+                var difference = Math.abs(this.heartScale - 1.0);
+                this.heartScale -= (difference * 0.08);
+                if (this.heartScale < 1.0001) {
+                    this.heartScale = 1.0;
+                }
+            }
+            else {
+                scale = 1.0;
+            }
+            var width = this.heartImg.width * scale;
+            var height = this.heartImg.height * scale;
+            var x = (35 + i * 40) - (width / 2.0);
+            var y = (Game.iSIZE.h / 2) - (height / 2.0);
+            Game.infoContext.drawImage(this.heartImg, x, y, width, height);
         }
-        for (var g in this.particleGenerators) {
-            this.particleGenerators[g].render();
+        if (this.heartScale < 1.0) {
+            var difference = Math.abs(this.heartScale - 1.0);
+            this.heartScale -= (difference * 0.3);
+            if (this.heartScale < 0.0001) {
+                this.heartScale = 1.0;
+                return;
+            }
+            var width = this.heartImg.width * this.heartScale;
+            var height = this.heartImg.height * this.heartScale;
+            var x = (35 + (3 - this.deathcount) * 40) - (width / 2.0);
+            var y = (Game.iSIZE.h / 2) - (height / 2.0);
+            Game.infoContext.drawImage(this.heartImg, x, y, width, height);
         }
     };
-    Level.width = 6; // how many blocks wide the field is
-    Level.height = 8; // how many blocks tall the field is
+    Level.width = 6;
+    Level.height = 8;
     Level.gamestates = { playing: -1, lost: 0, won: 1 };
     return Level;
-})();
+}());
 function drawHorizontallyCenteredRectangle(y, w, h) {
     Game.context.fillStyle = "#123";
     Game.context.fillRect(Game.SIZE.w / 2 - w / 2, y, w, h);
@@ -278,6 +349,7 @@ var Block = (function () {
             case "":
                 break;
             case "bomb":
+                this.powerup = 0;
                 Game.level.destroySquare(this.x, this.y, ball);
                 break;
             case "bigger_paddle":
@@ -292,6 +364,7 @@ var Block = (function () {
                 break;
             case "extra_life":
                 Game.level.deathcount--;
+                Game.level.heartScale = 3.0;
                 break;
         }
         Game.level.particleGenerators.push(new ParticleGenerator(this.x + Block.width / 2, this.y, Color.convert(this.color)));
@@ -309,7 +382,7 @@ var Block = (function () {
     Block.powerups = ["", "bomb", "bigger_paddle", "slice_ball", "extra_ball", "extra_life"];
     Block.powerup_images = Array();
     return Block;
-})();
+}());
 var Paddle = (function () {
     function Paddle() {
         this.biggerTimer = 0;
@@ -364,19 +437,33 @@ var Paddle = (function () {
         this.x += destx > this.x ? amount : -amount;
     };
     Paddle.prototype.render = function () {
-        Game.context.drawImage(this.img, this.x, this.y, this.width, this.height);
+        Game.context.drawImage(this.img, this.x + Game.level.camera.xo, this.y + Game.level.camera.yo, this.width, this.height);
     };
     return Paddle;
-})();
+}());
+var PreviousPosition = (function () {
+    function PreviousPosition(x, y, green) {
+        this.x = x;
+        this.y = y;
+        this.green = green || false;
+    }
+    PreviousPosition.prototype.equals = function (pos) {
+        return (this.x === pos.x && this.y === pos.y && this.green === pos.green);
+    };
+    return PreviousPosition;
+}());
 var Ball = (function () {
     function Ball() {
         this.maxXv = 8;
         this.slices = 0;
+        this.numberOfPreviousPositions = 50;
+        this.previousPositionIndex = 0;
         this.reset();
         this.img = new Image();
         this.img.src = "res/ball.png";
         this.img_slicing = new Image();
         this.img_slicing.src = "res/ball_slicing.png";
+        this.previousPositions = new Array();
     }
     Ball.prototype.reset = function () {
         this.x = 360;
@@ -388,11 +475,12 @@ var Ball = (function () {
     Ball.prototype.update = function (player) {
         this.x += this.xv;
         this.y += this.yv;
-        this.slices--;
-        // check for colisions with player paddle
+        this.addPosition(new PreviousPosition(this.x, this.y, !(this.slices < 60 && this.slices % 20 < 10)));
+        if (this.slices > 0) {
+            this.slices--;
+        }
         if (this.x + this.r > player.x && this.x - this.r < player.x + player.width && this.y + this.r > player.y && this.y - this.r < player.y + player.height) {
             Sound.play(Sound.blip);
-            Game.level.camera.shake(this.xv, this.yv);
             this.yv = -this.yv;
             this.y = player.y - this.r;
             this.xv += ((this.x - player.x - player.width / 2) / 100) * 5;
@@ -402,22 +490,21 @@ var Ball = (function () {
                 this.xv = -this.maxXv;
             return;
         }
-        // check for colisions with window edges
         if (this.x > Game.SIZE.w - this.r) {
             Sound.play(Sound.bloop);
-            Game.level.camera.shake(this.xv * 3, this.yv);
+            Game.level.camera.shake(this.xv * 2, 0);
             this.xv = -this.xv;
             this.x = Game.SIZE.w - this.r;
         }
         if (this.x < this.r) {
             Sound.play(Sound.bloop);
-            Game.level.camera.shake(this.xv * 3, this.yv);
+            Game.level.camera.shake(this.xv * 2, 0);
             this.xv = -this.xv;
             this.x = this.r;
         }
         if (this.y < this.r) {
             Sound.play(Sound.bloop);
-            Game.level.camera.shake(this.xv, this.yv * 3);
+            Game.level.camera.shake(0, this.yv * 2);
             this.yv = -this.yv;
             this.y = this.r;
         }
@@ -430,7 +517,6 @@ var Ball = (function () {
             Game.level.die();
             return;
         }
-        // check for collisions with blocks
         var c = this.collides();
         if (c !== -1) {
             Sound.play(Sound.bloop);
@@ -438,21 +524,36 @@ var Ball = (function () {
                 return;
             }
             if (this.x > Game.level.blocks[c].x + Block.width) {
+                Game.level.camera.shake(this.xv, 0);
                 this.xv = Math.abs(this.xv);
-                Game.level.camera.shake(this.xv * 2, this.yv);
             }
             if (this.x < Game.level.blocks[c].x) {
+                Game.level.camera.shake(this.xv, 0);
                 this.xv = -Math.abs(this.xv);
-                Game.level.camera.shake(this.xv * 2, this.yv);
             }
             if (this.y > Game.level.blocks[c].y + Block.height) {
+                Game.level.camera.shake(0, this.yv);
                 this.yv = Math.abs(this.yv);
-                Game.level.camera.shake(this.xv, this.yv * 2);
             }
             if (this.y < Game.level.blocks[c].y) {
+                Game.level.camera.shake(0, this.yv);
                 this.yv = -Math.abs(this.yv);
-                Game.level.camera.shake(this.xv, this.yv * 2);
             }
+        }
+    };
+    Ball.prototype.addPosition = function (pos) {
+        if (this.previousPositions.length === this.numberOfPreviousPositions) {
+            if (this.previousPositions[this.previousPositionIndex] === pos) {
+                return;
+            }
+            this.previousPositions[this.previousPositionIndex++] = pos;
+            this.previousPositionIndex %= this.numberOfPreviousPositions;
+        }
+        else {
+            if (this.previousPositions.length > 0 && this.previousPositions[this.previousPositions.length - 1].equals(pos)) {
+                return;
+            }
+            this.previousPositions.push(pos);
         }
     };
     Ball.prototype.collides = function () {
@@ -462,7 +563,7 @@ var Ball = (function () {
                 continue;
             if (this.x + this.r > b.x && this.x - this.r < b.x + Block.width && this.y + this.r > b.y && this.y - this.r < b.y + Block.height) {
                 Game.level.blocks[i].destroy(this);
-                return i;
+                return parseInt(i);
             }
         }
         return -1;
@@ -475,6 +576,24 @@ var Ball = (function () {
         } while (this.xv >= -1 && this.xv <= 1);
     };
     Ball.prototype.render = function () {
+        for (var i = this.previousPositionIndex - 1; i > this.previousPositionIndex - this.previousPositions.length; i--) {
+            var value = i + (this.previousPositions.length - this.previousPositionIndex) + 1;
+            Game.context.globalAlpha = (value / this.previousPositions.length) / 4;
+            var index = i;
+            if (index < 0) {
+                index += this.previousPositions.length;
+            }
+            var pos = this.previousPositions[index];
+            var x = pos.x - this.r + Game.level.camera.xo;
+            var y = pos.y - this.r + Game.level.camera.yo;
+            if (this.previousPositions[index].green) {
+                Game.context.drawImage(this.img_slicing, x, y);
+            }
+            else {
+                Game.context.drawImage(this.img, x, y);
+            }
+        }
+        Game.context.globalAlpha = 1.0;
         var x = this.x - this.r + Game.level.camera.xo;
         var y = this.y - this.r + Game.level.camera.yo;
         if (this.slices < 60 && this.slices % 20 < 10) {
@@ -485,7 +604,7 @@ var Ball = (function () {
         }
     };
     return Ball;
-})();
+}());
 var Mouse = (function () {
     function Mouse() {
     }
@@ -514,7 +633,7 @@ var Mouse = (function () {
     Mouse.ldown = false;
     Mouse.rdown = false;
     return Mouse;
-})();
+}());
 var Sound = (function () {
     function Sound() {
     }
@@ -543,7 +662,7 @@ var Sound = (function () {
     Sound.muted = false;
     Sound.volume = 0.5;
     return Sound;
-})();
+}());
 var ParticleGenerator = (function () {
     function ParticleGenerator(x, y, color) {
         this.particles = new Array();
@@ -567,7 +686,7 @@ var ParticleGenerator = (function () {
         }
     };
     return ParticleGenerator;
-})();
+}());
 var PARTICLE_TYPE;
 (function (PARTICLE_TYPE) {
     PARTICLE_TYPE[PARTICLE_TYPE["CIRCLE"] = 0] = "CIRCLE";
@@ -577,7 +696,7 @@ var Size = (function () {
     function Size() {
     }
     return Size;
-})();
+}());
 var Color = (function () {
     function Color(r, g, b) {
         this.r = r || 0;
@@ -609,7 +728,7 @@ var Color = (function () {
         }
     };
     return Color;
-})();
+}());
 var Particle = (function () {
     function Particle(generator, type, size, color, x, y, xv, yv, xa, ya, life) {
         this.generator = generator;
@@ -648,7 +767,7 @@ var Particle = (function () {
         }
     };
     return Particle;
-})();
+}());
 var Camera = (function () {
     function Camera() {
         this.xo = 0;
@@ -659,28 +778,21 @@ var Camera = (function () {
     Camera.prototype.update = function () {
         this.shakeX *= 0.90;
         this.shakeY *= 0.90;
-        if (this.shakeX < 0.001) {
+        if (this.shakeX < 0.001 && this.shakeX > -0.001) {
             this.shakeX = 0;
         }
-        if (this.shakeY < 0.001) {
+        if (this.shakeY < 0.001 && this.shakeY > -0.001) {
             this.shakeY = 0;
         }
         this.xo = this.shakeX;
         this.yo = this.shakeY;
     };
     Camera.prototype.shake = function (amountX, amountY) {
-        this.shakeX = (Math.random() * amountX) * (Math.random() > 0.5 ? 1 : -1);
-        this.shakeY = (Math.random() * amountY) * (Math.random() > 0.5 ? 1 : -1);
+        this.shakeX += (Math.random() * (amountX / 2) + (amountX / 2));
+        this.shakeY += (Math.random() * (amountY / 2) + (amountX / 2));
     };
     return Camera;
-})();
-// class BallCollideParticle extends Particle {
-//     constructor(generator: ParticleGenerator, type: PARTICLE_TYPE, size: Size, x: number, y: number, xv: number, yv: number, xa: number, ya: number, life: number) {
-//         super(generator, type, size, x, y, xv, ya, xa, ya, life);
-//     }
-//     render() {
-//     }
-// }
+}());
 var Keyboard = (function () {
     function Keyboard() {
     }
@@ -707,7 +819,7 @@ var Keyboard = (function () {
     };
     Keyboard.keysdown = [];
     return Keyboard;
-})();
+}());
 function keydown(event) {
     Keyboard.keychange(event, true);
     if (event.keyCode === Keyboard.KEYS.SPACE)
@@ -730,6 +842,12 @@ function toggleFooter(which) {
         }
     }
 }
+window.onblur = function () {
+    Game.paused = true;
+};
+window.onresize = function () {
+    Game.canvasClientRect = Game.canvas.getBoundingClientRect();
+};
 window.onload = function () {
     Block.loadImages();
     Sound.init();

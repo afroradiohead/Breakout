@@ -163,7 +163,6 @@ var Level = (function () {
     Level.prototype.getColor = function (i, type) {
         if (!type) {
             type = Math.floor(Game.lastTick % 5);
-            console.log(Game.lastTick);
         }
         else {
             type %= 5;

@@ -249,7 +249,6 @@ class Level {
     getColor(i: number, type?: number): number {
         if (!type) {
             type = Math.floor(Game.lastTick % 5);
-            console.log(Game.lastTick);
         } else {
             type %= 5;
         }

@@ -1,21 +1,19 @@
+import { Sound } from './main';
 import {UTILS, Game, Ball, ParticleGenerator, Color} from "./imports"
 import {Base } from "./Base";
-
-function generateImageList() {
-	return [null, "grey", "red", "orange", "yellow", "green", "blue", "darkblue", "purple", "pink"].map(color => {
-		return UTILS.generateImageElement({
-			src: `res/blocks/${color}.png`
-		});
-	});
-}
+import { GameEvent } from './engine/annotations/GameEvent';
 
 function generateImageSrc(type: "powerups" | "blocks", name: string): HTMLImageElement{
 	return UTILS.generateImageElement({src: `res/${type}/${name}.png`})
 }
 
-
-export class Block extends Base<"destroyed">{
-    static width: number = 80;
+export class Block extends Base<"destroyed"> implements Base.IBoundingBox{
+	boundingBox = {
+        x: 0,
+        y: 0,
+        height: 0,
+        width: 0
+    }
 	static height: number = 20;
 
 	get game(): Game{
@@ -32,38 +30,50 @@ export class Block extends Base<"destroyed">{
 	public get color(): any {
 		return this.config.color;
 	}
+
+	public get width(): number {
+		return this.config.width;
+	}
+
+	public get height(): number {
+		return Block.height;
+	}
+	shape = new UTILS.CREATEJS.Shape()
 	destroyingBall: Ball;
 	powerUpName: Block.POWER_UPS = Block.POWER_UPS.NONE;
+
+
     constructor(public config: Block.IConfig) {
 		super();
 		const randomPowerUpSeed = Math.floor(Math.random() * 24);
 		const powerUpCount = Object.keys(Block.POWER_UPS).length;
+		this.boundingBox = {
+			x: config.x,
+			y: config.y,
+			width: config.width,
+			height: this.height
+		}
 		
 		if(randomPowerUpSeed < powerUpCount - 1){
 			this.powerUpName = Block.POWER_UPS[UTILS.LODASH.sample(Object.keys(Block.POWER_UPS))];
 		}
+		this.shape.graphics.beginFill(`rgb(${this.config.color.r}, ${this.config.color.g}, ${this.config.color.b})`).drawRect(this.boundingBox.x, this.boundingBox.y, this.boundingBox.width, this.boundingBox.height);
+		
+		this.game.stage.addChild(this.shape);
     }
 
     destroy(ball: Ball) {
 		this.destroyingBall = ball;
-		if (this.color > 0) {
-			const powerUpConfig = Block.POWER_UP_CONFIG_BY_NAME[this.powerUpName];
-			if(powerUpConfig && powerUpConfig.action){
-				powerUpConfig.action(this, ball);
-			}
-	
-			this.game.level.particleGenerators.push(new ParticleGenerator(this.x + Block.width / 2, this.y, Color.convert(this.color)));
-	
-			this.config.color = 0;
-		}
+		this.game.level.particleGenerators.push(new ParticleGenerator(this.boundingBox.x + this.boundingBox.width / 2, this.boundingBox.y, this.color));
 		this.emit("destroyed");
+		Sound.play(Sound.bloop);
+		this.game.stage.removeChild(this.shape);
     }
 
-    render() {
-        this.game.context.drawImage(generateImageList()[this.color], this.x + this.game.level.camera.xo, this.y + this.game.level.camera.yo);
+    async render() {
 		const powerUpConfig = Block.POWER_UP_CONFIG_BY_NAME[this.powerUpName];
         if (powerUpConfig) {
-            this.game.context.drawImage(powerUpConfig.image, this.x + Block.width / 2 - 7 + this.game.level.camera.xo, this.y + 3 + this.game.level.camera.yo);
+            this.game.context.drawImage(powerUpConfig.image, this.boundingBox.x + this.boundingBox.width / 2 - 7 + this.game.level.camera.xo, this.boundingBox.y + 3 + this.game.level.camera.yo);
         }
     }
 }
@@ -99,6 +109,7 @@ export namespace Block {
 		game: Game;
 		x: number;
 		y: number, 
-		color: number
+		color: Color,
+		width: number
 	}
 }

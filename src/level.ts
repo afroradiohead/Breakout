@@ -1,4 +1,5 @@
-import { Block, UTILS, Camera, Base, Paddle, GameInstance, Ball, ParticleGenerator, Mouse, Keyboard, Sound} from './imports';
+import { Block, Color, UTILS, Camera, Base, Paddle, GameInstance, Ball, ParticleGenerator, Mouse, Keyboard, Sound} from './imports';
+import { GameEvent } from './engine/annotations/GameEvent';
 
 export class Level extends Base<any>{
     
@@ -9,11 +10,12 @@ export class Level extends Base<any>{
 
     camera: Camera = new Camera();
 
-    static width: number = 6; // how many blocks wide the field is
-    static height: number = 8; // how many blocks tall the field is
+    static width: number = 20; // how many blocks wide the field is
+    public levelWidth = 20;
+    static height: number = 5 // how many blocks tall the field is
 
     player: Paddle = new Paddle();
-    balls: Ball[] = [new Ball()];
+    balls: Ball[] = [];
 
     ballstill: boolean = true; // Is true at the start of the game, and after the player loses a life. Gets set to false on mouse down.
     deathcount: number = 0;
@@ -25,40 +27,40 @@ export class Level extends Base<any>{
 
     particleGenerators: ParticleGenerator[] = [];
     
-    EVENTS: {KEY: string}
-
     constructor() {
         super();
         this.camera.shake(0, -2000); // Drop tiles in from top of screen
-        this.reset();
-        
-        this.listen<Block>("destroyed").subscribe(({instance: block}) => {
-            switch(block.powerUpName){
-                case Block.POWER_UPS.BOMB:
-                    Sound.play(Sound.boom);
-                    const x = (block.x - this.xo) / 100;
-                    const y = (block.y - this.yo) / 35;
-                    block.powerUpName = Block.POWER_UPS.NONE;
 
-                    for (var yy = Math.max(y - 1, 0); yy <= Math.min(y + 1, Level.height - 1); yy++) {
-                        for (var xx = Math.max(x - 1, 0); xx <= Math.min(x + 1, Level.width - 1); xx++) {
-                            if (this.blocks[xx + yy * Level.width].color === 0) continue;
-                            if (xx === x && yy === y) continue;
-                            this.blocks[xx + yy * Level.width].destroy(block.destroyingBall);
-                        }
-                    } 
-                    break;
-                case Block.POWER_UPS.EXTRA_BALL: 
-                    const newBall = new Ball();
-                    block.game.level.balls.push(newBall);
-                    newBall.shoot();
-                    break;
-                case Block.POWER_UPS.EXTRA_LIFE: 
-                    this.deathcount--;
-                    this.heartScale = 3.0;
+        this.reset();
+    }
+
+    @GameEvent.ListenTo<Block>("destroyed")
+    private onDestroy_Block(block: Block){
+        switch(block.powerUpName){
+            case Block.POWER_UPS.BOMB:
+                Sound.play(Sound.boom);
+                const x = (block.x - this.xo) / 100;
+                const y = (block.y - this.yo) / 35;
+                block.powerUpName = Block.POWER_UPS.NONE;
+
+                for (var yy = Math.max(y - 1, 0); yy <= Math.min(y + 1, Level.height - 1); yy++) {
+                    for (var xx = Math.max(x - 1, 0); xx <= Math.min(x + 1, Level.width - 1); xx++) {
+                        if (this.blocks[xx + yy * Level.width].color === 0) continue;
+                        if (xx === x && yy === y) continue;
+                        this.blocks[xx + yy * Level.width].destroy(block.destroyingBall);
+                    }
+                } 
                 break;
-            }
-        });
+            case Block.POWER_UPS.EXTRA_BALL: 
+                const newBall = new Ball();
+                this.balls.push(newBall);
+                newBall.shoot();
+                break;
+            case Block.POWER_UPS.EXTRA_LIFE: 
+                this.deathcount--;
+                this.heartScale = 3.0;
+            break;
+        }
     }
 
     update() {
@@ -72,11 +74,11 @@ export class Level extends Base<any>{
         if (this.gamestate === Level.gamestates.playing) {
             this.player.update();
             this.balls.forEach(ball => ball.update(this.player))
-            if (this.checkBoardWon()) {
-                this.deathcount--;
-                this.gamestate = Level.gamestates.won;
-                this.die();
-            }
+            // if (this.checkBoardWon()) {
+            //     this.deathcount--;
+            //     this.gamestate = Level.gamestates.won;
+            //     this.die();
+            // }
         } else {
             if (Mouse.ldown || Keyboard.keysdown[Keyboard.KEYS.SPACE]) {
                 this.reset();
@@ -112,17 +114,18 @@ export class Level extends Base<any>{
         this.gamestate = Level.gamestates.playing;
         this.deathcount = 0;
         this.ballstill = true;
-        this.balls = new Array<Ball>(1);
-        this.balls[0] = new Ball();
+        this.balls = [new Ball()];
         this.player.reset();        
         const rand = Math.floor(Math.random() * 5);
 
         this.blocks = UTILS.LODASH.times(Level.width * Level.height, (i) => {
+            const blockWidth = Math.floor(GameInstance.canvas.width / this.levelWidth);
             return new Block({
                 game: GameInstance,
-                x: (i % Level.width) * 100 + this.xo,
-                y: Math.floor(i / Level.width) * 35 + this.yo,
-                color: this.getColor(i, rand)
+                width: blockWidth,
+                x: (i % this.levelWidth) * blockWidth + this.xo - (blockWidth*2),
+                y: Math.floor(i / this.levelWidth) * 35 + this.yo,
+                color: Color.convert(this.getColor(i, rand))
             })
         })
 
@@ -175,13 +178,6 @@ export class Level extends Base<any>{
     }
 
     render() {
-        var i;
-
-        this.player.render();
-        this.balls.forEach(ball => ball.render())
-        this.blocks
-            .filter(block => block.color != 0)
-            .forEach(block => block.render())
 
         this.renderRemainingLives();
 

@@ -18,14 +18,10 @@ export class ParticleGenerator {
     }
 
     update() {
-        for (var p in this.particles) {
-            this.particles[p].update();
-        }
+        this.particles.forEach(p => p.update());
     }
 
     render() {
-        for (var p in this.particles) {
-            this.particles[p].render();
-        }
+        this.particles.forEach(p => p.render());
     }
 }

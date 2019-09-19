@@ -1,4 +1,5 @@
 import { Mouse, Keyboard, GameInstance, Block, Base } from './imports';
+import { UTILS } from './utils';
 export class Paddle extends Base<any> {
 
     x: number;
@@ -9,6 +10,8 @@ export class Paddle extends Base<any> {
     biggerTimer: number = 0;
     img: HTMLImageElement;
     usingMouseInput: boolean;
+
+    shape = new UTILS.CREATEJS.Shape();
 
     constructor() {
         super();
@@ -23,7 +26,10 @@ export class Paddle extends Base<any> {
             if(event.instance.powerUpName === Block.POWER_UPS.BIGGER_PADDLE){
                 this.biggerTimer = 300;
             }
-        })
+        });
+
+        this.shape.graphics.beginFill("blue").drawRect(0,0, this.width, this.height);
+        GameInstance.stage.addChild(this.shape);
     }
 
     reset() {
@@ -33,6 +39,9 @@ export class Paddle extends Base<any> {
         this.height = 25;
         this.maxv = 25;
         this.biggerTimer = 0;
+
+        this.shape.x = this.x;
+        this.shape.y = this.y;
     }
 
     update() {
@@ -70,9 +79,11 @@ export class Paddle extends Base<any> {
         amount = Math.min(Math.abs(this.x - destx), this.maxv);
 
         this.x += destx > this.x ? amount : -amount;
+        this.shape.x = this.x + GameInstance.level.camera.xo;
+        this.shape.y = this.y + GameInstance.level.camera.yo;
     }
 
     render() {
-        GameInstance.context.drawImage(this.img, this.x + GameInstance.level.camera.xo, this.y + GameInstance.level.camera.yo, this.width, this.height);
+
     }
 }

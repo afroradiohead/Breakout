@@ -2,7 +2,6 @@ import { GameInstance, Color, ParticleGenerator } from "./imports";
 import { Size } from "./Size";
 import { PARTICLE_TYPE } from "./PARTICLE_TYPE";
 export class Particle {
-    generator: ParticleGenerator;
     type: PARTICLE_TYPE;
     xa: number;
     ya: number;
@@ -14,8 +13,7 @@ export class Particle {
     life: number; // Number of ticks until this particle dissapears
     startingLife: number;
     color: Color;
-    constructor(generator: ParticleGenerator, type: PARTICLE_TYPE, size: Size, color: Color, x: number, y: number, xv: number, yv: number, xa: number, ya: number, life: number) {
-        this.generator = generator;
+    constructor(public generator: ParticleGenerator, type: PARTICLE_TYPE, size: Size, color: Color, x: number, y: number, xv: number, yv: number, xa: number, ya: number, life: number) {
         this.type = type;
         this.size = size;
         this.color = color;

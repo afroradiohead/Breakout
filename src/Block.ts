@@ -17,13 +17,8 @@ function generateImageSrc(type: "powerups" | "blocks", name: string): HTMLImageE
 }
 
 
-
-
-
-
-
-export class Block extends Base<Block.IEvent>{
-	static EVENT: ["POWERUP"]
+export class Block extends Base<"cheese">{
+	EVENT: ["cheese"]
     static width: number = 80;
 	static height: number = 20;
 
@@ -41,7 +36,7 @@ export class Block extends Base<Block.IEvent>{
 	public get color(): any {
 		return this.config.color;
 	}
-
+	destroyingBall: Ball;
 	powerUpName: Block.POWER_UPS = Block.POWER_UPS.NONE;
     constructor(public config: Block.IConfig) {
 		super();
@@ -55,6 +50,7 @@ export class Block extends Base<Block.IEvent>{
     }
 
     destroy(ball: Ball) {
+		this.destroyingBall = ball;
 		if (this.color > 0) {
 			const powerUpConfig = Block.POWER_UP_CONFIG_BY_NAME[this.powerUpName];
 			if(powerUpConfig && powerUpConfig.action){
@@ -102,35 +98,19 @@ export namespace Block {
 
 	export const POWER_UP_CONFIG_BY_NAME = {
 		[Block.POWER_UPS.BOMB]: {
-			image: generateImageSrc("powerups", "bomb"),
-			action: (block: Block, ball: Ball) => {
-				block.powerUpName = POWER_UPS.NONE; // prevent infinite loop of recursion
-				block.game.level.destroySquare(block.x, block.y, ball);
-				block.emit()
-			}
+			image: generateImageSrc("powerups", "bomb")
 		},
 		[Block.POWER_UPS.BIGGER_PADDLE]: {
 			image: generateImageSrc("powerups", "longer_paddle"),
 		},
 		[Block.POWER_UPS.SLICE_BALL]: {
-			image: generateImageSrc("powerups", "slicing_ball"),
-			action: (block: Block, ball: Ball) => {
-				ball.slices = 100;
-			}
+			image: generateImageSrc("powerups", "slicing_ball")
 		},
 		[Block.POWER_UPS.EXTRA_BALL]: {
-			image: generateImageSrc("powerups", "add_ball"),
-			action: (block: Block, ball: Ball) => {
-				block.game.level.balls.push(new Ball());
-				block.game.level.balls[block.game.level.balls.length - 1].shoot();
-			}
+			image: generateImageSrc("powerups", "add_ball")
 		},
 		[Block.POWER_UPS.EXTRA_LIFE]: {
-			image: generateImageSrc("powerups", "add_heart"),
-			action: (block: Block, ball: Ball) => {
-				block.game.level.deathcount--;
-				block.game.level.heartScale = 3.0;
-			}
+			image: generateImageSrc("powerups", "add_heart")
 		}
 	};
 	export interface IEvent {

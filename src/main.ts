@@ -67,6 +67,12 @@ export class Ball {
         this.img_slicing.src = "res/ball_slicing.png";
 
         this.previousPositions = new Array<PreviousPosition>();
+
+        Block.listen("destroyed").subscribe(({instance: block}) => {
+            if(block.powerUpName === Block.POWER_UPS.SLICE_BALL){
+                this.slices = 100;
+            }
+        })
     }
 
     reset() {
@@ -427,40 +433,6 @@ class Particle {
     }
 }
 
-export class Camera {
-    xo: number;
-    yo: number;
-
-    shakeX: number;
-    shakeY: number;
-
-    constructor() {
-        this.xo = 0;
-        this.yo = 0;
-        this.shakeX = 0;
-        this.shakeY = 0;
-    }
-
-    update() {
-        this.shakeX *= 0.90;
-        this.shakeY *= 0.90;
-
-        if (this.shakeX < 0.001 && this.shakeX > -0.001) {
-            this.shakeX = 0;
-        }
-        if (this.shakeY < 0.001 && this.shakeY > -0.001) {
-            this.shakeY = 0;
-        }
-
-        this.xo = this.shakeX;
-        this.yo = this.shakeY;
-    }
-
-    shake(amountX: number, amountY: number) {
-        this.shakeX += (Math.random() * (amountX / 2) + (amountX / 2));
-        this.shakeY += (Math.random() * (amountY / 2) + (amountX / 2));
-    }
-}
 
 export class Keyboard {
     static KEYS = {

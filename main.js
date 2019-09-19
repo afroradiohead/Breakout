@@ -29863,9 +29863,8 @@ module.exports = function(module) {
 Object.defineProperty(exports, "__esModule", { value: true });
 // const subject = new Subject();
 class Base {
-    emit() {
-        // subject.next({
-        // });
+    emit() { }
+    listen(b) {
     }
 }
 exports.Base = Base;
@@ -29921,6 +29920,7 @@ class Block extends Base_1.Base {
         return this.config.color;
     }
     destroy(ball) {
+        this.destroyingBall = ball;
         if (this.color > 0) {
             const powerUpConfig = Block.POWER_UP_CONFIG_BY_NAME[this.powerUpName];
             if (powerUpConfig && powerUpConfig.action) {
@@ -29961,38 +29961,67 @@ const subject = new rxjs_1.Subject();
     })(POWER_UPS = Block.POWER_UPS || (Block.POWER_UPS = {}));
     Block.POWER_UP_CONFIG_BY_NAME = {
         [Block.POWER_UPS.BOMB]: {
-            image: generateImageSrc("powerups", "bomb"),
-            action: (block, ball) => {
-                block.powerUpName = POWER_UPS.NONE; // prevent infinite loop of recursion
-                block.game.level.destroySquare(block.x, block.y, ball);
-                block.emit();
-            }
+            image: generateImageSrc("powerups", "bomb")
         },
         [Block.POWER_UPS.BIGGER_PADDLE]: {
             image: generateImageSrc("powerups", "longer_paddle"),
         },
         [Block.POWER_UPS.SLICE_BALL]: {
-            image: generateImageSrc("powerups", "slicing_ball"),
-            action: (block, ball) => {
-                ball.slices = 100;
-            }
+            image: generateImageSrc("powerups", "slicing_ball")
         },
         [Block.POWER_UPS.EXTRA_BALL]: {
-            image: generateImageSrc("powerups", "add_ball"),
-            action: (block, ball) => {
-                block.game.level.balls.push(new main_1.Ball());
-                block.game.level.balls[block.game.level.balls.length - 1].shoot();
-            }
+            image: generateImageSrc("powerups", "add_ball")
         },
         [Block.POWER_UPS.EXTRA_LIFE]: {
-            image: generateImageSrc("powerups", "add_heart"),
-            action: (block, ball) => {
-                block.game.level.deathcount--;
-                block.game.level.heartScale = 3.0;
-            }
+            image: generateImageSrc("powerups", "add_heart")
         }
     };
 })(Block = exports.Block || (exports.Block = {}));
+
+
+/***/ }),
+
+/***/ "./src/Camera.ts":
+/*!***********************!*\
+  !*** ./src/Camera.ts ***!
+  \***********************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const Block_1 = __webpack_require__(/*! ./Block */ "./src/Block.ts");
+class Camera {
+    constructor() {
+        this.xo = 0;
+        this.yo = 0;
+        this.shakeX = 0;
+        this.shakeY = 0;
+        Block_1.Block.listen("destroyed").subscribe(({ instance: block }) => {
+            if (block.powerUpName === Block_1.Block.POWER_UPS.BOMB) {
+                this.shake(block.destroyingBall.xv * 4, block.destroyingBall.yv * 4);
+            }
+        });
+    }
+    update() {
+        this.shakeX *= 0.90;
+        this.shakeY *= 0.90;
+        if (this.shakeX < 0.001 && this.shakeX > -0.001) {
+            this.shakeX = 0;
+        }
+        if (this.shakeY < 0.001 && this.shakeY > -0.001) {
+            this.shakeY = 0;
+        }
+        this.xo = this.shakeX;
+        this.yo = this.shakeY;
+    }
+    shake(amountX, amountY) {
+        this.shakeX += (Math.random() * (amountX / 2) + (amountX / 2));
+        this.shakeY += (Math.random() * (amountY / 2) + (amountX / 2));
+    }
+}
+exports.Camera = Camera;
 
 
 /***/ }),
@@ -30173,37 +30202,64 @@ const main_1 = __webpack_require__(/*! ./main */ "./src/main.ts");
 const Game_1 = __webpack_require__(/*! ./Game */ "./src/Game.ts");
 const lodash_1 = __webpack_require__(/*! lodash */ "./node_modules/lodash/lodash.js");
 const Paddle_1 = __webpack_require__(/*! ./Paddle */ "./src/Paddle.ts");
-class Level {
+const Camera_1 = __webpack_require__(/*! ./Camera */ "./src/Camera.ts");
+const utils_1 = __webpack_require__(/*! ./utils */ "./src/utils.ts");
+const Base_1 = __webpack_require__(/*! ./Base */ "./src/Base.ts");
+class Level extends Base_1.Base {
     constructor() {
+        super();
+        this.xo = 70;
+        this.yo = 25;
+        this.camera = new Camera_1.Camera();
+        this.player = new Paddle_1.Paddle();
+        this.balls = [new main_1.Ball()];
         this.ballstill = true; // Is true at the start of the game, and after the player loses a life. Gets set to false on mouse down.
         this.deathcount = 0;
+        this.heartImg = utils_1.generateImageElement({ src: "res/heart.png" });
         this.heartScale = 1.0; // Used to draw hearts extra large when first acquired
-        this.player = new Paddle_1.Paddle();
-        this.balls = new Array(1);
-        this.balls[0] = new main_1.Ball();
-        this.camera = new main_1.Camera();
-        this.xo = 70; // keep these constant for now
-        this.yo = 25;
-        this.heartImg = new Image();
-        this.heartImg.src = "res/heart.png";
-        this.particleGenerators = new Array();
+        this.particleGenerators = [];
         this.camera.shake(0, -2000); // Drop tiles in from top of screen
         this.reset();
+        this.listen("a");
+        Block_1.Block.listen("destroyed").subscribe(({ instance: block }) => {
+            switch (block.powerUpName) {
+                case Block_1.Block.POWER_UPS.BOMB:
+                    main_1.Sound.play(main_1.Sound.boom);
+                    const x = (block.x - this.xo) / 100;
+                    const y = (block.y - this.yo) / 35;
+                    block.powerUpName = Block_1.Block.POWER_UPS.NONE;
+                    for (var yy = Math.max(y - 1, 0); yy <= Math.min(y + 1, Level.height - 1); yy++) {
+                        for (var xx = Math.max(x - 1, 0); xx <= Math.min(x + 1, Level.width - 1); xx++) {
+                            if (this.blocks[xx + yy * Level.width].color === 0)
+                                continue;
+                            if (xx === x && yy === y)
+                                continue;
+                            this.blocks[xx + yy * Level.width].destroy(block.destroyingBall);
+                        }
+                    }
+                    break;
+                case Block_1.Block.POWER_UPS.EXTRA_BALL:
+                    const newBall = new main_1.Ball();
+                    block.game.level.balls.push(newBall);
+                    newBall.shoot();
+                    break;
+                case Block_1.Block.POWER_UPS.EXTRA_LIFE:
+                    this.deathcount--;
+                    this.heartScale = 3.0;
+                    break;
+            }
+        });
     }
     update() {
         if (Game_1.GameInstance.paused) {
             if (main_1.Mouse.ldown) {
                 Game_1.GameInstance.paused = false;
             }
-            else {
-                return;
-            }
+            return;
         }
         if (this.gamestate === Level.gamestates.playing) {
             this.player.update();
-            for (var i = 0; i < this.balls.length; i++) {
-                this.balls[i].update(this.player);
-            }
+            this.balls.forEach(ball => ball.update(this.player));
             if (this.checkBoardWon()) {
                 this.deathcount--;
                 this.gamestate = Level.gamestates.won;
@@ -30215,21 +30271,14 @@ class Level {
                 this.reset();
             }
         }
-        for (var g in this.particleGenerators) {
-            this.particleGenerators[g].update();
-        }
+        this.particleGenerators.forEach(p => p.update());
         this.camera.update();
     }
     checkBoardWon() {
-        for (var i in this.blocks) {
-            if (this.blocks[i].color !== 0)
-                return false;
-        }
-        return true;
+        return this.blocks.every(block => block.color === 0);
     }
     die() {
-        this.balls = new Array(1);
-        this.balls[0] = new main_1.Ball();
+        this.balls = [new main_1.Ball()];
         this.player.reset();
         this.ballstill = true;
         this.deathcount++;
@@ -30241,21 +30290,6 @@ class Level {
             // Render the last heart shrinking into oblivion
             this.heartScale = 0.99;
         }
-    }
-    destroySquare(xp, yp, ball) {
-        main_1.Sound.play(main_1.Sound.boom);
-        var x = (xp - this.xo) / 100;
-        var y = (yp - this.yo) / 35;
-        for (var yy = Math.max(y - 1, 0); yy <= Math.min(y + 1, Level.height - 1); yy++) {
-            for (var xx = Math.max(x - 1, 0); xx <= Math.min(x + 1, Level.width - 1); xx++) {
-                if (this.blocks[xx + yy * Level.width].color === 0)
-                    continue;
-                if (xx === x && yy === y)
-                    continue;
-                this.blocks[xx + yy * Level.width].destroy(ball);
-            }
-        }
-        this.camera.shake(ball.xv * 4, ball.yv * 4);
     }
     reset() {
         Game_1.GameInstance.paused = false;
@@ -30322,19 +30356,12 @@ class Level {
     render() {
         var i;
         this.player.render();
-        for (i = 0; i < this.balls.length; i++) {
-            this.balls[i].render();
-        }
-        for (i in this.blocks) {
-            if (this.blocks[i].color === 0)
-                continue;
-            else
-                this.blocks[i].render();
-        }
+        this.balls.forEach(ball => ball.render());
+        this.blocks
+            .filter(block => block.color != 0)
+            .forEach(block => block.render());
         this.renderRemainingLives();
-        for (var g in this.particleGenerators) {
-            this.particleGenerators[g].render();
-        }
+        this.particleGenerators.forEach(p => p.render());
         // Game over / Game won / Paused overlays
         if (this.gamestate === Level.gamestates.lost || this.gamestate === Level.gamestates.won) {
             drawHorizontallyCenteredRectangle(112, 220, 100);
@@ -30481,6 +30508,11 @@ class Ball {
         this.img_slicing = new Image();
         this.img_slicing.src = "res/ball_slicing.png";
         this.previousPositions = new Array();
+        Block_1.Block.listen("destroyed").subscribe(({ instance: block }) => {
+            if (block.powerUpName === Block_1.Block.POWER_UPS.SLICE_BALL) {
+                this.slices = 100;
+            }
+        });
     }
     reset() {
         this.x = 360;
@@ -30784,31 +30816,6 @@ class Particle {
         }
     }
 }
-class Camera {
-    constructor() {
-        this.xo = 0;
-        this.yo = 0;
-        this.shakeX = 0;
-        this.shakeY = 0;
-    }
-    update() {
-        this.shakeX *= 0.90;
-        this.shakeY *= 0.90;
-        if (this.shakeX < 0.001 && this.shakeX > -0.001) {
-            this.shakeX = 0;
-        }
-        if (this.shakeY < 0.001 && this.shakeY > -0.001) {
-            this.shakeY = 0;
-        }
-        this.xo = this.shakeX;
-        this.yo = this.shakeY;
-    }
-    shake(amountX, amountY) {
-        this.shakeX += (Math.random() * (amountX / 2) + (amountX / 2));
-        this.shakeY += (Math.random() * (amountY / 2) + (amountX / 2));
-    }
-}
-exports.Camera = Camera;
 class Keyboard {
     static keychange(event, down) {
         var keycode = event.keyCode ? event.keyCode : event.which;

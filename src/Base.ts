@@ -3,13 +3,14 @@
 // const subject = new Subject();
 
 export abstract class Base<T> {
-	public EVENTS;
+	public static EVENTS;
+	
 
 
-	public emit(){
-		// subject.next({
+	public emit(){}
 
-		// });
+	public listen<TBase extends Base<T>>(b: T){
+
 	}
 	
 }

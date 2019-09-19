@@ -1,69 +1,85 @@
 import { Block } from './Block';
-import {Ball, ParticleGenerator, Camera, Mouse, Keyboard, Sound} from "./main";
+import {Ball, ParticleGenerator, Mouse, Keyboard, Sound} from "./main";
 import {GameInstance} from "./Game";
 import {times} from "lodash";
 import { Paddle } from './Paddle';
+import { Camera } from './Camera';
+import { generateImageElement } from './utils';
+import { Base } from './Base';
 
-export class Level {
+export class Level extends Base<any>{
 
     blocks: Array<Block>;
 
-    xo: number;
-    yo: number;
+    xo: number = 70;
+    yo: number = 25;
 
-    camera: Camera;
+    camera: Camera = new Camera();
 
     static width: number = 6; // how many blocks wide the field is
     static height: number = 8; // how many blocks tall the field is
 
-    player: Paddle;
-    balls: Ball[];
+    player: Paddle = new Paddle();
+    balls: Ball[] = [new Ball()];
 
     ballstill: boolean = true; // Is true at the start of the game, and after the player loses a life. Gets set to false on mouse down.
     deathcount: number = 0;
     static gamestates = { playing: -1, lost: 0, won: 1 };
     gamestate: number;
 
-    heartImg: HTMLImageElement;
+    heartImg: HTMLImageElement = generateImageElement({src: "res/heart.png"});
     heartScale = 1.0; // Used to draw hearts extra large when first acquired
 
-    particleGenerators: ParticleGenerator[];
+    particleGenerators: ParticleGenerator[] = [];
+    
 
     constructor() {
-        this.player = new Paddle();
-        this.balls = new Array<Ball>(1);
-        this.balls[0] = new Ball();
-
-        this.camera = new Camera();
-
-        this.xo = 70; // keep these constant for now
-        this.yo = 25;
-
-        this.heartImg = new Image();
-        this.heartImg.src = "res/heart.png";
-
-        this.particleGenerators = new Array<ParticleGenerator>();
-
+        super();
         this.camera.shake(0, -2000); // Drop tiles in from top of screen
-
         this.reset();
+
+        this.listen<Block>("a");
+
+        Block.listen("destroyed").subscribe(({instance: block}) => {
+            switch(block.powerUpName){
+                case Block.POWER_UPS.BOMB:
+                    Sound.play(Sound.boom);
+                    const x = (block.x - this.xo) / 100;
+                    const y = (block.y - this.yo) / 35;
+                    block.powerUpName = Block.POWER_UPS.NONE;
+
+                    for (var yy = Math.max(y - 1, 0); yy <= Math.min(y + 1, Level.height - 1); yy++) {
+                        for (var xx = Math.max(x - 1, 0); xx <= Math.min(x + 1, Level.width - 1); xx++) {
+                            if (this.blocks[xx + yy * Level.width].color === 0) continue;
+                            if (xx === x && yy === y) continue;
+                            this.blocks[xx + yy * Level.width].destroy(block.destroyingBall);
+                        }
+                    } 
+                    break;
+                case Block.POWER_UPS.EXTRA_BALL: 
+                    const newBall = new Ball();
+                    block.game.level.balls.push(newBall);
+                    newBall.shoot();
+                    break;
+                case Block.POWER_UPS.EXTRA_LIFE: 
+                    this.deathcount--;
+                    this.heartScale = 3.0;
+                break;
+            }
+        });
     }
 
     update() {
         if (GameInstance.paused) {
             if (Mouse.ldown) {
                 GameInstance.paused = false;
-            } else {
-                return;
             }
+            return;
         }
 
         if (this.gamestate === Level.gamestates.playing) {
             this.player.update();
-            for (var i = 0; i < this.balls.length; i++) {
-                this.balls[i].update(this.player);
-            }
-
+            this.balls.forEach(ball => ball.update(this.player))
             if (this.checkBoardWon()) {
                 this.deathcount--;
                 this.gamestate = Level.gamestates.won;
@@ -74,24 +90,17 @@ export class Level {
                 this.reset();
             }
         }
-
-        for (var g in this.particleGenerators) {
-            this.particleGenerators[g].update();
-        }
-
+        
+        this.particleGenerators.forEach(p => p.update());
         this.camera.update();
     }
 
     checkBoardWon(): boolean {
-        for (var i in this.blocks) {
-            if (this.blocks[i].color !== 0) return false;
-        }
-        return true;
+        return this.blocks.every(block => block.color === 0);
     }
 
     die() {
-        this.balls = new Array<Ball>(1);
-        this.balls[0] = new Ball();
+        this.balls = [new Ball()]
         this.player.reset();
         this.ballstill = true;
         this.deathcount++;
@@ -106,23 +115,7 @@ export class Level {
         }
     }
 
-    destroySquare(xp: number, yp: number, ball: Ball) { // destroys a 3x3 square (bomb tile)
-        Sound.play(Sound.boom);
-        var x = (xp - this.xo) / 100;
-        var y = (yp - this.yo) / 35;
-        for (var yy = Math.max(y - 1, 0); yy <= Math.min(y + 1, Level.height - 1); yy++) {
-            for (var xx = Math.max(x - 1, 0); xx <= Math.min(x + 1, Level.width - 1); xx++) {
-                if (this.blocks[xx + yy * Level.width].color === 0) continue;
-                if (xx === x && yy === y) continue;
-                this.blocks[xx + yy * Level.width].destroy(ball);
-            }
-        }
-
-        this.camera.shake(ball.xv * 4, ball.yv * 4);
-    }
-
     reset() {
-
         GameInstance.paused = false;
         this.gamestate = Level.gamestates.playing;
         this.deathcount = 0;
@@ -193,20 +186,14 @@ export class Level {
         var i;
 
         this.player.render();
-        for (i = 0; i < this.balls.length; i++) {
-            this.balls[i].render();
-        }
-
-        for (i in this.blocks) {
-            if (this.blocks[i].color === 0) continue;
-            else this.blocks[i].render();
-        }
+        this.balls.forEach(ball => ball.render())
+        this.blocks
+            .filter(block => block.color != 0)
+            .forEach(block => block.render())
 
         this.renderRemainingLives();
 
-        for (var g in this.particleGenerators) {
-            this.particleGenerators[g].render();
-        }
+        this.particleGenerators.forEach(p => p.render());
 
         // Game over / Game won / Paused overlays
         if (this.gamestate === Level.gamestates.lost || this.gamestate === Level.gamestates.won) {

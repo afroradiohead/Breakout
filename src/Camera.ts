@@ -1,5 +1,4 @@
-import { Block } from "./Block";
-import { Base } from "./Base";
+import { Block, Base } from "./imports";
 
 export class Camera extends Base{
     xo: number = 0;

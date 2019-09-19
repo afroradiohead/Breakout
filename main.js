@@ -29986,9 +29986,8 @@ Block.height = 20;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-const Block_1 = __webpack_require__(/*! ./Block */ "./src/Block.ts");
-const Base_1 = __webpack_require__(/*! ./Base */ "./src/Base.ts");
-class Camera extends Base_1.Base {
+const imports_1 = __webpack_require__(/*! ./imports */ "./src/imports.ts");
+class Camera extends imports_1.Base {
     constructor() {
         super();
         this.xo = 0;
@@ -29996,7 +29995,7 @@ class Camera extends Base_1.Base {
         this.shakeX = 0;
         this.shakeY = 0;
         this.listen("destroyed").subscribe(({ instance: block }) => {
-            if (block.powerUpName === Block_1.Block.POWER_UPS.BOMB) {
+            if (block.powerUpName === imports_1.Block.POWER_UPS.BOMB) {
                 this.shake(block.destroyingBall.xv * 4, block.destroyingBall.yv * 4);
             }
         });
@@ -30113,11 +30112,8 @@ exports.GameInstance = new Game();
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-const main_1 = __webpack_require__(/*! ./main */ "./src/main.ts");
-const Game_1 = __webpack_require__(/*! ./Game */ "./src/Game.ts");
-const Block_1 = __webpack_require__(/*! ./Block */ "./src/Block.ts");
-const Base_1 = __webpack_require__(/*! ./Base */ "./src/Base.ts");
-class Paddle extends Base_1.Base {
+const imports_1 = __webpack_require__(/*! ./imports */ "./src/imports.ts");
+class Paddle extends imports_1.Base {
     constructor() {
         super();
         this.biggerTimer = 0;
@@ -30126,7 +30122,7 @@ class Paddle extends Base_1.Base {
         this.img.src = "res/player_paddle.png";
         this.usingMouseInput = true;
         this.listen("destroyed").subscribe((event) => {
-            if (event.instance.powerUpName === Block_1.Block.POWER_UPS.BIGGER_PADDLE) {
+            if (event.instance.powerUpName === imports_1.Block.POWER_UPS.BIGGER_PADDLE) {
                 this.biggerTimer = 300;
             }
         });
@@ -30152,32 +30148,32 @@ class Paddle extends Base_1.Base {
         else {
             this.width = 180;
         }
-        if (Game_1.GameInstance.level.ballstill && main_1.Mouse.ldown) {
-            Game_1.GameInstance.level.balls[0].shoot();
+        if (imports_1.GameInstance.level.ballstill && imports_1.Mouse.ldown) {
+            imports_1.GameInstance.level.balls[0].shoot();
             return;
         }
-        if (Game_1.GameInstance.level.ballstill)
+        if (imports_1.GameInstance.level.ballstill)
             return;
-        var left = !!(main_1.Keyboard.keysdown[main_1.Keyboard.KEYS.A] || main_1.Keyboard.keysdown[main_1.Keyboard.KEYS.LEFT]);
-        var right = !!(main_1.Keyboard.keysdown[main_1.Keyboard.KEYS.D] || main_1.Keyboard.keysdown[main_1.Keyboard.KEYS.RIGHT]);
+        var left = !!(imports_1.Keyboard.keysdown[imports_1.Keyboard.KEYS.A] || imports_1.Keyboard.keysdown[imports_1.Keyboard.KEYS.LEFT]);
+        var right = !!(imports_1.Keyboard.keysdown[imports_1.Keyboard.KEYS.D] || imports_1.Keyboard.keysdown[imports_1.Keyboard.KEYS.RIGHT]);
         var destx = this.x;
         var amount = 0;
         if (this.usingMouseInput) {
-            destx = Math.min(Math.max(main_1.Mouse.x - this.width / 2, 0), Game_1.GameInstance.SIZE.w - this.width);
+            destx = Math.min(Math.max(imports_1.Mouse.x - this.width / 2, 0), imports_1.GameInstance.SIZE.w - this.width);
         }
         else {
             if (left) {
                 destx = 0;
             }
             else if (right) {
-                destx = Game_1.GameInstance.canvas.width - this.width;
+                destx = imports_1.GameInstance.canvas.width - this.width;
             }
         }
         amount = Math.min(Math.abs(this.x - destx), this.maxv);
         this.x += destx > this.x ? amount : -amount;
     }
     render() {
-        Game_1.GameInstance.context.drawImage(this.img, this.x + Game_1.GameInstance.level.camera.xo, this.y + Game_1.GameInstance.level.camera.yo, this.width, this.height);
+        imports_1.GameInstance.context.drawImage(this.img, this.x + imports_1.GameInstance.level.camera.xo, this.y + imports_1.GameInstance.level.camera.yo, this.width, this.height);
     }
 }
 exports.Paddle = Paddle;
@@ -30941,10 +30937,6 @@ var UTILS;
     }
     UTILS.getHtmlElementById = getHtmlElementById;
 })(UTILS = exports.UTILS || (exports.UTILS = {}));
-function getHtmlElementById(id) {
-    return document.getElementById(id);
-}
-exports.getHtmlElementById = getHtmlElementById;
 
 
 /***/ })

@@ -27,8 +27,3 @@ export namespace UTILS {
 		return document.getElementById(id);
 	}
 }
-
-
-export function getHtmlElementById(id: string): HTMLElement {
-    return document.getElementById(id);
-}

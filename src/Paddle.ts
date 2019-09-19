@@ -1,7 +1,4 @@
-import { Mouse, Keyboard } from './main';
-import { GameInstance } from './Game';
-import { Block } from './Block';
-import { Base } from './Base';
+import { Mouse, Keyboard, GameInstance, Block, Base } from './imports';
 export class Paddle extends Base {
 
     x: number;

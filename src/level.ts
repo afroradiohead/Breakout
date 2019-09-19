@@ -2,7 +2,7 @@ import { Block, UTILS, Camera, Base, Paddle, GameInstance, Ball, ParticleGenerat
 
 export class Level extends Base<any>{
     
-    blocks: Array<Block>;
+    blocks: Block[];
 
     xo: number = 70;
     yo: number = 25;

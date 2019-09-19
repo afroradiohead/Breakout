@@ -1,7 +1,4 @@
-import {GameInstance} from "./Game";
-import {Block} from "./Block";
-import { getHtmlElementById } from "./utils";
-import { Paddle } from "./Paddle";
+import { UTILS, Block, GameInstance, Paddle, Base } from "./imports";
 
 /*
     Feature list:
@@ -36,7 +33,7 @@ class PreviousPosition {
     }
 }
 
-export class Ball {
+export class Ball extends Base<any> {
 
     x: number;
     y: number;
@@ -58,6 +55,7 @@ export class Ball {
     previousPositionIndex: number = 0;
 
     constructor() {
+        super()
         this.reset();
 
         this.img = new Image();
@@ -68,7 +66,7 @@ export class Ball {
 
         this.previousPositions = new Array<PreviousPosition>();
 
-        Block.listen("destroyed").subscribe(({instance: block}) => {
+        this.listen<Block>("destroyed").subscribe(({instance: block}) => {
             if(block.powerUpName === Block.POWER_UPS.SLICE_BALL){
                 this.slices = 100;
             }
@@ -273,13 +271,13 @@ export class Sound {
     static volumeSlider;
 
     static init() {
-        Sound.blip = <HTMLAudioElement>getHtmlElementById('blipSound');
-        Sound.bloop = <HTMLAudioElement>getHtmlElementById('bloopSound');
-        Sound.die = <HTMLAudioElement>getHtmlElementById('dieSound');
-        Sound.boom = <HTMLAudioElement>getHtmlElementById('boomSound');
-        Sound.life = <HTMLAudioElement>getHtmlElementById('lifeSound');
+        Sound.blip = <HTMLAudioElement>UTILS.getHtmlElementById('blipSound');
+        Sound.bloop = <HTMLAudioElement>UTILS.getHtmlElementById('bloopSound');
+        Sound.die = <HTMLAudioElement>UTILS.getHtmlElementById('dieSound');
+        Sound.boom = <HTMLAudioElement>UTILS.getHtmlElementById('boomSound');
+        Sound.life = <HTMLAudioElement>UTILS.getHtmlElementById('lifeSound');
 
-        Sound.volumeSlider = <HTMLInputElement>getHtmlElementById('volumeSlider');
+        Sound.volumeSlider = <HTMLInputElement>UTILS.getHtmlElementById('volumeSlider');
         Sound.changeVolume();
     }
 
@@ -480,7 +478,7 @@ window.onkeyup = keyup;
 function toggleFooter(which: string) {
     var front = '1',
         back = '0',
-        about = getHtmlElementById('aboutFooter');
+        about = UTILS.getHtmlElementById('aboutFooter');
 
     if (which === 'about') {
         if (about.className === 'short') {

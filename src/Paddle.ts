@@ -1,7 +1,8 @@
 import { Mouse, Keyboard } from './main';
 import { GameInstance } from './Game';
 import { Block } from './Block';
-export class Paddle {
+import { Base } from './Base';
+export class Paddle extends Base {
 
     x: number;
     y: number;
@@ -13,6 +14,7 @@ export class Paddle {
     usingMouseInput: boolean;
 
     constructor() {
+        super();
         this.reset();
 
         this.img = new Image();
@@ -20,7 +22,7 @@ export class Paddle {
 
         this.usingMouseInput = true;
 
-        Block.listen("destroyed").subscribe((event) => {
+        this.listen<Block>("destroyed").subscribe((event) => {
             if(event.instance.powerUpName === Block.POWER_UPS.BIGGER_PADDLE){
                 this.biggerTimer = 300;
             }

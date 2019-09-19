@@ -1,24 +1,17 @@
-import { Subject} from 'rxjs';
-import { filter} from "rxjs/operators"
-import {Ball, ParticleGenerator, Color} from "./main";
-import {Game} from "./Game";
-import { generateImageElement } from "./utils";
-import { Base } from "./Base";
-import { sample } from "lodash";
+import {UTILS, Game, Base, Ball, ParticleGenerator, Color} from "./imports"
 
 const IMAGE_LIST = [null, "grey", "red", "orange", "yellow", "green", "blue", "darkblue", "purple", "pink"].map(color => {
-	return generateImageElement({
+	return UTILS.generateImageElement({
 		src: `res/blocks/${color}.png`
 	});
 });
 
 function generateImageSrc(type: "powerups" | "blocks", name: string): HTMLImageElement{
-	return generateImageElement({src: `res/${type}/${name}.png`})
+	return UTILS.generateImageElement({src: `res/${type}/${name}.png`})
 }
 
 
-export class Block extends Base<"cheese">{
-	EVENT: ["cheese"]
+export class Block extends Base<"destroyed">{
     static width: number = 80;
 	static height: number = 20;
 
@@ -43,9 +36,8 @@ export class Block extends Base<"cheese">{
 		const randomPowerUpSeed = Math.floor(Math.random() * 24);
 		const powerUpCount = Object.keys(Block.POWER_UPS).length;
 		
-		
 		if(randomPowerUpSeed < powerUpCount - 1){
-			this.powerUpName = Block.POWER_UPS[sample(Object.keys(Block.POWER_UPS))];
+			this.powerUpName = Block.POWER_UPS[UTILS.LODASH.sample(Object.keys(Block.POWER_UPS))];
 		}
     }
 
@@ -61,30 +53,17 @@ export class Block extends Base<"cheese">{
 	
 			this.config.color = 0;
 		}
-		subject.next({
-			name: "destroyed",
-			instance: this
-		});
+		this.emit("destroyed");
     }
 
     render() {
         this.game.context.drawImage(IMAGE_LIST[this.color], this.x + this.game.level.camera.xo, this.y + this.game.level.camera.yo);
-		
 		const powerUpConfig = Block.POWER_UP_CONFIG_BY_NAME[this.powerUpName];
         if (powerUpConfig) {
             this.game.context.drawImage(powerUpConfig.image, this.x + Block.width / 2 - 7 + this.game.level.camera.xo, this.y + 3 + this.game.level.camera.yo);
         }
     }
-	
-	static listen(name: "destroyed"){
-		return subject.pipe(filter(event => event.name === name));
-	}
 }
-
-const subject = new Subject<{
-	name: "destroyed";
-	instance: Block
-}>();
 
 export namespace Block {
 	export enum POWER_UPS {
@@ -113,18 +92,10 @@ export namespace Block {
 			image: generateImageSrc("powerups", "add_heart")
 		}
 	};
-	export interface IEvent {
-		DESTROYED: Ball
-	}
-
 	export interface IConfig{
 		game: Game;
 		x: number;
 		y: number, 
 		color: number
 	}
-    export interface IPowerUpConfig {
-        image: HTMLImageElement,
-        action: any
-    }
 }

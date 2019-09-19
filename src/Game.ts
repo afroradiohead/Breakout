@@ -1,5 +1,4 @@
-import { Level } from './level';
-import { getHtmlElementById } from "./utils";
+import { Level, UTILS} from './imports';
 
 export class Game {
     SIZE: { w: number, h: number }; // size of gameCanvas
@@ -24,15 +23,15 @@ export class Game {
     font20 = "20px Poiret One";
 
     init() {
-        this.canvas = <HTMLCanvasElement>getHtmlElementById('gameCanvas');
+        this.canvas = <HTMLCanvasElement>UTILS.getHtmlElementById('gameCanvas');
         this.canvas.width = 720;
         this.canvas.height = 480;
         this.context = this.canvas.getContext('2d');
 
-        this.infoCanvas = <HTMLCanvasElement>getHtmlElementById('infoCanvas');
+        this.infoCanvas = <HTMLCanvasElement>UTILS.getHtmlElementById('infoCanvas');
         this.infoCanvas.width = 720;
         this.infoCanvas.height = 80;
-        this.infoContext = (<HTMLCanvasElement>getHtmlElementById('infoCanvas')).getContext('2d');
+        this.infoContext = (<HTMLCanvasElement>UTILS.getHtmlElementById('infoCanvas')).getContext('2d');
         this.canvasClientRect = this.canvas.getBoundingClientRect();
         this.SIZE = { w: this.canvas.width, h: this.canvas.height };
         this.iSIZE = { w: this.infoContext.canvas.width, h: this.infoContext.canvas.height };

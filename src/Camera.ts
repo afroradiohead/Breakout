@@ -1,6 +1,7 @@
 import { Block } from "./Block";
+import { Base } from "./Base";
 
-export class Camera {
+export class Camera extends Base{
     xo: number = 0;
     yo: number = 0;
 
@@ -8,7 +9,8 @@ export class Camera {
     shakeY: number = 0;
 
     constructor() {
-        Block.listen("destroyed").subscribe(({instance: block}) => {
+		super();
+        this.listen<Block>("destroyed").subscribe(({instance: block}) => {
             if(block.powerUpName === Block.POWER_UPS.BOMB){
                 this.shake(block.destroyingBall.xv * 4, block.destroyingBall.yv * 4)
             }

@@ -1,14 +1,7 @@
-import { Block } from './Block';
-import {Ball, ParticleGenerator, Mouse, Keyboard, Sound} from "./main";
-import {GameInstance} from "./Game";
-import {times} from "lodash";
-import { Paddle } from './Paddle';
-import { Camera } from './Camera';
-import { generateImageElement } from './utils';
-import { Base } from './Base';
+import { Block, UTILS, Camera, Base, Paddle, GameInstance, Ball, ParticleGenerator, Mouse, Keyboard, Sound} from './imports';
 
 export class Level extends Base<any>{
-
+    
     blocks: Array<Block>;
 
     xo: number = 70;
@@ -27,20 +20,19 @@ export class Level extends Base<any>{
     static gamestates = { playing: -1, lost: 0, won: 1 };
     gamestate: number;
 
-    heartImg: HTMLImageElement = generateImageElement({src: "res/heart.png"});
+    heartImg: HTMLImageElement = UTILS.generateImageElement({src: "res/heart.png"});
     heartScale = 1.0; // Used to draw hearts extra large when first acquired
 
     particleGenerators: ParticleGenerator[] = [];
     
+    EVENTS: {KEY: string}
 
     constructor() {
         super();
         this.camera.shake(0, -2000); // Drop tiles in from top of screen
         this.reset();
-
-        this.listen<Block>("a");
-
-        Block.listen("destroyed").subscribe(({instance: block}) => {
+        
+        this.listen<Block>("destroyed").subscribe(({instance: block}) => {
             switch(block.powerUpName){
                 case Block.POWER_UPS.BOMB:
                     Sound.play(Sound.boom);
@@ -125,7 +117,7 @@ export class Level extends Base<any>{
         this.player.reset();        
         const rand = Math.floor(Math.random() * 5);
 
-        this.blocks = times(Level.width * Level.height, (i) => {
+        this.blocks = UTILS.LODASH.times(Level.width * Level.height, (i) => {
             return new Block({
                 game: GameInstance,
                 x: (i % Level.width) * 100 + this.xo,

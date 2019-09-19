@@ -1,16 +1,24 @@
-// import {Subject} from "rxjs";
+import { UTILS } from "./imports";
 
-// const subject = new Subject();
+const subject = new UTILS.RXJS.Subject<{
+	name: any;
+	instance: any
+}>();
 
-export abstract class Base<T> {
-	public static EVENTS;
+export abstract class Base<TEvents = any> {
+	public EVENTS: TEvents;
+
+	// public abstract destroy(): void;
 	
+	public emit(name: TEvents){
+		subject.next({
+			name: name,
+			instance: this
+		});
+	}
 
-
-	public emit(){}
-
-	public listen<TBase extends Base<T>>(b: T){
-
+	listen<T extends Base<TEvents>>(name: T['EVENTS']): UTILS.RXJS.Observable<{name: string; instance: T}> {
+		return subject.pipe(UTILS.RXJS.filter(event => event.name === name)) ;
 	}
 	
 }

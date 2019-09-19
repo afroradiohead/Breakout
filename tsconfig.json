@@ -1,6 +1,9 @@
 {
-    "version": "1.5.0-alpha",
-    "files": [
-        "main.ts"
-    ]
-}
+    "compilerOptions": {
+      "sourceMap": false,
+      "target": "es6",
+      "module": "commonjs",
+      "moduleResolution": "node",
+      "lib": ["es2015", "dom"]
+    }
+  }

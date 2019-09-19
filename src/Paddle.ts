@@ -1,5 +1,5 @@
 import { Mouse, Keyboard, GameInstance, Block, Base } from './imports';
-export class Paddle extends Base {
+export class Paddle extends Base<any> {
 
     x: number;
     y: number;

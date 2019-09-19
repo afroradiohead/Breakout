@@ -1,6 +1,6 @@
 import { Block, Base } from "./imports";
 
-export class Camera extends Base{
+export class Camera extends Base<any>{
     xo: number = 0;
     yo: number = 0;
 

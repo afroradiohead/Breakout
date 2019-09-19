@@ -1,10 +1,13 @@
-import {UTILS, Game, Base, Ball, ParticleGenerator, Color} from "./imports"
+import {UTILS, Game, Ball, ParticleGenerator, Color} from "./imports"
+import {Base } from "./Base";
 
-const IMAGE_LIST = [null, "grey", "red", "orange", "yellow", "green", "blue", "darkblue", "purple", "pink"].map(color => {
-	return UTILS.generateImageElement({
-		src: `res/blocks/${color}.png`
+function generateImageList() {
+	return [null, "grey", "red", "orange", "yellow", "green", "blue", "darkblue", "purple", "pink"].map(color => {
+		return UTILS.generateImageElement({
+			src: `res/blocks/${color}.png`
+		});
 	});
-});
+}
 
 function generateImageSrc(type: "powerups" | "blocks", name: string): HTMLImageElement{
 	return UTILS.generateImageElement({src: `res/${type}/${name}.png`})
@@ -57,7 +60,7 @@ export class Block extends Base<"destroyed">{
     }
 
     render() {
-        this.game.context.drawImage(IMAGE_LIST[this.color], this.x + this.game.level.camera.xo, this.y + this.game.level.camera.yo);
+        this.game.context.drawImage(generateImageList()[this.color], this.x + this.game.level.camera.xo, this.y + this.game.level.camera.yo);
 		const powerUpConfig = Block.POWER_UP_CONFIG_BY_NAME[this.powerUpName];
         if (powerUpConfig) {
             this.game.context.drawImage(powerUpConfig.image, this.x + Block.width / 2 - 7 + this.game.level.camera.xo, this.y + 3 + this.game.level.camera.yo);

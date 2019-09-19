@@ -29850,6 +29850,192 @@ module.exports = function(module) {
 
 /***/ }),
 
+/***/ "./src/Ball.ts":
+/*!*********************!*\
+  !*** ./src/Ball.ts ***!
+  \*********************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const Game_1 = __webpack_require__(/*! ./Game */ "./src/Game.ts");
+const Base_1 = __webpack_require__(/*! ./Base */ "./src/Base.ts");
+const main_1 = __webpack_require__(/*! ./main */ "./src/main.ts");
+const Block_1 = __webpack_require__(/*! ./Block */ "./src/Block.ts");
+class Ball extends Base_1.Base {
+    constructor() {
+        super();
+        this.maxXv = 8;
+        /** How many ticks are left in the green "slicing" powerup
+            if > 0, the ball is rendered green and doesn't bounce when
+            coming in contact with blocks */
+        this.slices = 0;
+        this.numberOfPreviousPositions = 50;
+        this.previousPositionIndex = 0;
+        this.reset();
+        this.img = new Image();
+        this.img.src = "res/ball.png";
+        this.img_slicing = new Image();
+        this.img_slicing.src = "res/ball_slicing.png";
+        this.previousPositions = new Array();
+        this.listen("destroyed").subscribe(({ instance: block }) => {
+            if (block.powerUpName === Block_1.Block.POWER_UPS.SLICE_BALL) {
+                this.slices = 100;
+            }
+        });
+    }
+    reset() {
+        this.x = 360;
+        this.y = 440;
+        this.xv = 0;
+        this.yv = 0;
+        this.r = 10;
+    }
+    update(player) {
+        this.x += this.xv;
+        this.y += this.yv;
+        this.addPosition(new main_1.PreviousPosition(this.x, this.y, !(this.slices < 60 && this.slices % 20 < 10)));
+        if (this.slices > 0) {
+            this.slices--;
+        }
+        // check for colisions with player paddle
+        if (this.x + this.r > player.x && this.x - this.r < player.x + player.width && this.y + this.r > player.y && this.y - this.r < player.y + player.height) {
+            main_1.Sound.play(main_1.Sound.blip);
+            this.yv = -this.yv;
+            this.y = player.y - this.r;
+            this.xv += ((this.x - player.x - player.width / 2) / 100) * 5;
+            if (this.xv > this.maxXv)
+                this.xv = this.maxXv;
+            if (this.xv < -this.maxXv)
+                this.xv = -this.maxXv;
+            return;
+        }
+        // check for colisions with window edges
+        if (this.x > Game_1.GameInstance.SIZE.w - this.r) {
+            main_1.Sound.play(main_1.Sound.bloop);
+            Game_1.GameInstance.level.camera.shake(this.xv * 2, 0);
+            this.xv = -this.xv;
+            this.x = Game_1.GameInstance.SIZE.w - this.r;
+        }
+        if (this.x < this.r) {
+            main_1.Sound.play(main_1.Sound.bloop);
+            Game_1.GameInstance.level.camera.shake(this.xv * 2, 0);
+            this.xv = -this.xv;
+            this.x = this.r;
+        }
+        if (this.y < this.r) {
+            main_1.Sound.play(main_1.Sound.bloop);
+            Game_1.GameInstance.level.camera.shake(0, this.yv * 2);
+            this.yv = -this.yv;
+            this.y = this.r;
+        }
+        if (this.y > Game_1.GameInstance.SIZE.h) {
+            if (Game_1.GameInstance.level.balls.length > 1) {
+                Game_1.GameInstance.level.balls.splice(Game_1.GameInstance.level.balls.indexOf(this), 1);
+                return;
+            }
+            main_1.Sound.play(main_1.Sound.die);
+            Game_1.GameInstance.level.die();
+            return;
+        }
+        // check for collisions with blocks
+        var c = this.collides();
+        if (c !== -1) {
+            main_1.Sound.play(main_1.Sound.bloop);
+            if (this.slices > 0) {
+                return;
+            }
+            if (this.x > Game_1.GameInstance.level.blocks[c].x + Block_1.Block.width) {
+                Game_1.GameInstance.level.camera.shake(this.xv, 0);
+                this.xv = Math.abs(this.xv);
+            }
+            if (this.x < Game_1.GameInstance.level.blocks[c].x) {
+                Game_1.GameInstance.level.camera.shake(this.xv, 0);
+                this.xv = -Math.abs(this.xv);
+            }
+            if (this.y > Game_1.GameInstance.level.blocks[c].y + Block_1.Block.height) {
+                Game_1.GameInstance.level.camera.shake(0, this.yv);
+                this.yv = Math.abs(this.yv);
+            }
+            if (this.y < Game_1.GameInstance.level.blocks[c].y) {
+                Game_1.GameInstance.level.camera.shake(0, this.yv);
+                this.yv = -Math.abs(this.yv);
+            }
+        }
+    }
+    addPosition(pos) {
+        if (this.previousPositions.length === this.numberOfPreviousPositions) {
+            if (this.previousPositions[this.previousPositionIndex] === pos) {
+                // Don't add the same position twice
+                return;
+            }
+            this.previousPositions[this.previousPositionIndex++] = pos;
+            this.previousPositionIndex %= this.numberOfPreviousPositions;
+        }
+        else {
+            if (this.previousPositions.length > 0 && this.previousPositions[this.previousPositions.length - 1].equals(pos)) {
+                // Don't add the same position twice
+                return;
+            }
+            this.previousPositions.push(pos);
+        }
+    }
+    collides() {
+        for (var i in Game_1.GameInstance.level.blocks) {
+            var b = Game_1.GameInstance.level.blocks[i];
+            if (b.color === 0)
+                continue;
+            if (this.x + this.r > b.x && this.x - this.r < b.x + Block_1.Block.width && this.y + this.r > b.y && this.y - this.r < b.y + Block_1.Block.height) {
+                Game_1.GameInstance.level.blocks[i].destroy(this);
+                return parseInt(i);
+            }
+        }
+        return -1;
+    }
+    shoot() {
+        Game_1.GameInstance.level.ballstill = false;
+        this.yv = -7;
+        do {
+            this.xv = Math.floor(Math.random() * 10) - 5;
+        } while (this.xv >= -1 && this.xv <= 1);
+    }
+    render() {
+        // Render ball trail
+        for (var i = this.previousPositionIndex - 1; i > this.previousPositionIndex - this.previousPositions.length; i--) {
+            var value = i + (this.previousPositions.length - this.previousPositionIndex) + 1;
+            Game_1.GameInstance.context.globalAlpha = (value / this.previousPositions.length) / 4;
+            var index = i;
+            if (index < 0) {
+                index += this.previousPositions.length;
+            }
+            var pos = this.previousPositions[index];
+            var x = pos.x - this.r + Game_1.GameInstance.level.camera.xo;
+            var y = pos.y - this.r + Game_1.GameInstance.level.camera.yo;
+            if (this.previousPositions[index].green) {
+                Game_1.GameInstance.context.drawImage(this.img_slicing, x, y);
+            }
+            else {
+                Game_1.GameInstance.context.drawImage(this.img, x, y);
+            }
+        }
+        Game_1.GameInstance.context.globalAlpha = 1.0;
+        var x = this.x - this.r + Game_1.GameInstance.level.camera.xo;
+        var y = this.y - this.r + Game_1.GameInstance.level.camera.yo;
+        if (this.slices < 60 && this.slices % 20 < 10) { // blinking effect when slicing effect is about to wear off
+            Game_1.GameInstance.context.drawImage(this.img, x, y);
+        }
+        else {
+            Game_1.GameInstance.context.drawImage(this.img_slicing, x, y);
+        }
+    }
+}
+exports.Ball = Ball;
+
+
+/***/ }),
+
 /***/ "./src/Base.ts":
 /*!*********************!*\
   !*** ./src/Base.ts ***!
@@ -29860,8 +30046,8 @@ module.exports = function(module) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-const imports_1 = __webpack_require__(/*! ./imports */ "./src/imports.ts");
-const subject = new imports_1.UTILS.RXJS.Subject();
+const utils_1 = __webpack_require__(/*! ./utils */ "./src/utils.ts");
+const subject = new utils_1.UTILS.RXJS.Subject();
 class Base {
     // public abstract destroy(): void;
     emit(name) {
@@ -29871,7 +30057,7 @@ class Base {
         });
     }
     listen(name) {
-        return subject.pipe(imports_1.UTILS.RXJS.filter(event => event.name === name));
+        return subject.pipe(utils_1.UTILS.RXJS.filter(event => event.name === name));
     }
 }
 exports.Base = Base;
@@ -29890,15 +30076,18 @@ exports.Base = Base;
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const imports_1 = __webpack_require__(/*! ./imports */ "./src/imports.ts");
-const IMAGE_LIST = [null, "grey", "red", "orange", "yellow", "green", "blue", "darkblue", "purple", "pink"].map(color => {
-    return imports_1.UTILS.generateImageElement({
-        src: `res/blocks/${color}.png`
+const Base_1 = __webpack_require__(/*! ./Base */ "./src/Base.ts");
+function generateImageList() {
+    return [null, "grey", "red", "orange", "yellow", "green", "blue", "darkblue", "purple", "pink"].map(color => {
+        return imports_1.UTILS.generateImageElement({
+            src: `res/blocks/${color}.png`
+        });
     });
-});
+}
 function generateImageSrc(type, name) {
     return imports_1.UTILS.generateImageElement({ src: `res/${type}/${name}.png` });
 }
-class Block extends imports_1.Base {
+class Block extends Base_1.Base {
     constructor(config) {
         super();
         this.config = config;
@@ -29934,7 +30123,7 @@ class Block extends imports_1.Base {
         this.emit("destroyed");
     }
     render() {
-        this.game.context.drawImage(IMAGE_LIST[this.color], this.x + this.game.level.camera.xo, this.y + this.game.level.camera.yo);
+        this.game.context.drawImage(generateImageList()[this.color], this.x + this.game.level.camera.xo, this.y + this.game.level.camera.yo);
         const powerUpConfig = Block.POWER_UP_CONFIG_BY_NAME[this.powerUpName];
         if (powerUpConfig) {
             this.game.context.drawImage(powerUpConfig.image, this.x + Block.width / 2 - 7 + this.game.level.camera.xo, this.y + 3 + this.game.level.camera.yo);
@@ -30022,6 +30211,52 @@ exports.Camera = Camera;
 
 /***/ }),
 
+/***/ "./src/Color.ts":
+/*!**********************!*\
+  !*** ./src/Color.ts ***!
+  \**********************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+class Color {
+    constructor(r, g, b) {
+        this.r = r || 0;
+        this.g = g || 0;
+        this.b = b || 0;
+    }
+    static convert(c) {
+        switch (c) {
+            case 1:
+                return new Color(158, 158, 158);
+            case 2:
+                return new Color(172, 0, 0);
+            case 3:
+                return new Color(172, 105, 0);
+            case 4:
+                return new Color(182, 176, 0);
+            case 5:
+                return new Color(52, 172, 0);
+            case 6:
+                return new Color(0, 172, 170);
+            case 7:
+                return new Color(0, 103, 182);
+            case 8:
+                return new Color(68, 0, 172);
+            case 9:
+                return new Color(180, 0, 182);
+            default:
+                return new Color(0, 0, 0);
+        }
+    }
+}
+exports.Color = Color;
+
+
+/***/ }),
+
 /***/ "./src/Game.ts":
 /*!*********************!*\
   !*** ./src/Game.ts ***!
@@ -30098,6 +30333,107 @@ class Game {
 }
 exports.Game = Game;
 exports.GameInstance = new Game();
+
+
+/***/ }),
+
+/***/ "./src/Keyboard.ts":
+/*!*************************!*\
+  !*** ./src/Keyboard.ts ***!
+  \*************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const Game_1 = __webpack_require__(/*! ./Game */ "./src/Game.ts");
+class Keyboard {
+    static keychange(event, down) {
+        var keycode = event.keyCode ? event.keyCode : event.which;
+        Keyboard.keysdown[keycode] = down;
+        if (down && keycode === Keyboard.KEYS.ESC) {
+            Game_1.GameInstance.togglePause();
+            if (Game_1.GameInstance.level.ballstill)
+                Game_1.GameInstance.paused = false;
+        }
+        if (keycode === Keyboard.KEYS.A || keycode === Keyboard.KEYS.D || keycode === Keyboard.KEYS.LEFT || keycode === Keyboard.KEYS.RIGHT) {
+            Game_1.GameInstance.paused = false;
+            Game_1.GameInstance.level.player.usingMouseInput = false;
+        }
+        if (keycode === Keyboard.KEYS.SPACE) {
+            if (Game_1.GameInstance.level.ballstill) {
+                Game_1.GameInstance.level.balls[0].shoot();
+            }
+        }
+    }
+}
+exports.Keyboard = Keyboard;
+Keyboard.KEYS = {
+    BACKSPACE: 8, TAB: 9, RETURN: 13, ESC: 27, SPACE: 32, PAGEUP: 33, PAGEDOWN: 34, END: 35, HOME: 36, LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, INSERT: 45, DELETE: 46, ZERO: 48, ONE: 49, TWO: 50, THREE: 51, FOUR: 52, FIVE: 53, SIX: 54, SEVEN: 55, EIGHT: 56, NINE: 57, A: 65, B: 66, C: 67, D: 68, E: 69, F: 70, G: 71, H: 72, I: 73, J: 74, K: 75, L: 76, M: 77, N: 78, O: 79, P: 80, Q: 81, R: 82, S: 83, T: 84, U: 85, V: 86, W: 87, X: 88, Y: 89, Z: 90, TILDE: 192, SHIFT: 999
+};
+Keyboard.keysdown = [];
+
+
+/***/ }),
+
+/***/ "./src/Mouse.ts":
+/*!**********************!*\
+  !*** ./src/Mouse.ts ***!
+  \**********************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const Game_1 = __webpack_require__(/*! ./Game */ "./src/Game.ts");
+class Mouse {
+    static update(event) {
+        var px = Mouse.x, py = Mouse.y;
+        Mouse.x = event.clientX - Game_1.GameInstance.canvasClientRect.left;
+        Mouse.y = event.clientY - Game_1.GameInstance.canvasClientRect.top;
+        if (Game_1.GameInstance.level && !Game_1.GameInstance.level.player.usingMouseInput && !Game_1.GameInstance.paused && (Mouse.x != px || Mouse.y != py)) {
+            Game_1.GameInstance.level.player.usingMouseInput = true;
+        }
+    }
+    static down(event) {
+        if (event.button === 1 || event.which === 1)
+            Mouse.ldown = true;
+        else if (event.button === 3 || event.which === 3)
+            Mouse.rdown = true;
+    }
+    static up(event) {
+        if (event.button === 1 || event.which === 1)
+            Mouse.ldown = false;
+        else if (event.button === 3 || event.which === 3)
+            Mouse.rdown = false;
+    }
+}
+exports.Mouse = Mouse;
+Mouse.x = 0;
+Mouse.y = 0;
+Mouse.ldown = false;
+Mouse.rdown = false;
+
+
+/***/ }),
+
+/***/ "./src/PARTICLE_TYPE.ts":
+/*!******************************!*\
+  !*** ./src/PARTICLE_TYPE.ts ***!
+  \******************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+var PARTICLE_TYPE;
+(function (PARTICLE_TYPE) {
+    PARTICLE_TYPE[PARTICLE_TYPE["CIRCLE"] = 0] = "CIRCLE";
+    PARTICLE_TYPE[PARTICLE_TYPE["SQUARE"] = 1] = "SQUARE";
+})(PARTICLE_TYPE = exports.PARTICLE_TYPE || (exports.PARTICLE_TYPE = {}));
 
 
 /***/ }),
@@ -30181,6 +30517,120 @@ exports.Paddle = Paddle;
 
 /***/ }),
 
+/***/ "./src/Particle.ts":
+/*!*************************!*\
+  !*** ./src/Particle.ts ***!
+  \*************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const imports_1 = __webpack_require__(/*! ./imports */ "./src/imports.ts");
+const PARTICLE_TYPE_1 = __webpack_require__(/*! ./PARTICLE_TYPE */ "./src/PARTICLE_TYPE.ts");
+class Particle {
+    constructor(generator, type, size, color, x, y, xv, yv, xa, ya, life) {
+        this.generator = generator;
+        this.type = type;
+        this.size = size;
+        this.color = color;
+        this.x = x;
+        this.y = y;
+        this.xv = xv;
+        this.yv = yv;
+        this.xa = xa;
+        this.ya = ya;
+        this.life = life;
+        this.startingLife = life;
+    }
+    update() {
+        this.life--;
+        if (this.life < 0) {
+            this.generator.remove(this);
+            return;
+        }
+        this.xv += this.xa;
+        this.yv += this.ya;
+        this.x += this.xv;
+        this.y += this.yv;
+    }
+    render() {
+        var x = this.x + imports_1.GameInstance.level.camera.xo;
+        var y = this.y + imports_1.GameInstance.level.camera.yo;
+        imports_1.GameInstance.context.fillStyle = "rgba(" + this.color.r + ", " + this.color.g + ", " + this.color.b + ", " + (this.life / this.startingLife) + ")";
+        if (this.type === PARTICLE_TYPE_1.PARTICLE_TYPE.SQUARE) {
+            imports_1.GameInstance.context.fillRect(x, y, this.size.w, this.size.h);
+        }
+        else if (this.type === PARTICLE_TYPE_1.PARTICLE_TYPE.CIRCLE) {
+            imports_1.GameInstance.context.arc(x, y, this.size.r, 0, 0);
+        }
+    }
+}
+exports.Particle = Particle;
+
+
+/***/ }),
+
+/***/ "./src/ParticleGenerator.ts":
+/*!**********************************!*\
+  !*** ./src/ParticleGenerator.ts ***!
+  \**********************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const imports_1 = __webpack_require__(/*! ./imports */ "./src/imports.ts");
+const utils_1 = __webpack_require__(/*! ./utils */ "./src/utils.ts");
+const size = new imports_1.Size();
+size.w = size.h = 6;
+class ParticleGenerator {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.particles = utils_1.UTILS.LODASH.times(25, () => {
+            return new imports_1.Particle(this, imports_1.PARTICLE_TYPE.SQUARE, size, this.color, this.x, this.y, Math.random() * 10 - 5, Math.random() * 10 - 5, 0, 0.5, 45);
+        });
+    }
+    remove(particle) {
+        this.particles.splice(this.particles.indexOf(particle));
+    }
+    update() {
+        for (var p in this.particles) {
+            this.particles[p].update();
+        }
+    }
+    render() {
+        for (var p in this.particles) {
+            this.particles[p].render();
+        }
+    }
+}
+exports.ParticleGenerator = ParticleGenerator;
+
+
+/***/ }),
+
+/***/ "./src/Size.ts":
+/*!*********************!*\
+  !*** ./src/Size.ts ***!
+  \*********************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+class Size {
+}
+exports.Size = Size;
+
+
+/***/ }),
+
 /***/ "./src/imports.ts":
 /*!************************!*\
   !*** ./src/imports.ts ***!
@@ -30194,14 +30644,23 @@ function __export(m) {
     for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
 }
 Object.defineProperty(exports, "__esModule", { value: true });
-__export(__webpack_require__(/*! ./main */ "./src/main.ts"));
-__export(__webpack_require__(/*! ./Block */ "./src/Block.ts"));
-__export(__webpack_require__(/*! ./level */ "./src/level.ts"));
-__export(__webpack_require__(/*! ./Camera */ "./src/Camera.ts"));
-__export(__webpack_require__(/*! ./Paddle */ "./src/Paddle.ts"));
+__export(__webpack_require__(/*! ./utils */ "./src/utils.ts"));
 __export(__webpack_require__(/*! ./Base */ "./src/Base.ts"));
 __export(__webpack_require__(/*! ./Game */ "./src/Game.ts"));
-__export(__webpack_require__(/*! ./utils */ "./src/utils.ts"));
+__export(__webpack_require__(/*! ./Color */ "./src/Color.ts"));
+__export(__webpack_require__(/*! ./level */ "./src/level.ts"));
+__export(__webpack_require__(/*! ./Ball */ "./src/Ball.ts"));
+__export(__webpack_require__(/*! ./main */ "./src/main.ts"));
+__export(__webpack_require__(/*! ./Block */ "./src/Block.ts"));
+__export(__webpack_require__(/*! ./Camera */ "./src/Camera.ts"));
+__export(__webpack_require__(/*! ./Paddle */ "./src/Paddle.ts"));
+__export(__webpack_require__(/*! ./Game */ "./src/Game.ts"));
+__export(__webpack_require__(/*! ./Keyboard */ "./src/Keyboard.ts"));
+__export(__webpack_require__(/*! ./Mouse */ "./src/Mouse.ts"));
+__export(__webpack_require__(/*! ./Size */ "./src/Size.ts"));
+__export(__webpack_require__(/*! ./Particle */ "./src/Particle.ts"));
+__export(__webpack_require__(/*! ./ParticleGenerator */ "./src/ParticleGenerator.ts"));
+__export(__webpack_require__(/*! ./PARTICLE_TYPE */ "./src/PARTICLE_TYPE.ts"));
 
 
 /***/ }),
@@ -30502,202 +30961,8 @@ class PreviousPosition {
         return (this.x === pos.x && this.y === pos.y && this.green === pos.green);
     }
 }
-class Ball extends imports_1.Base {
-    constructor() {
-        super();
-        this.maxXv = 8;
-        /** How many ticks are left in the green "slicing" powerup
-            if > 0, the ball is rendered green and doesn't bounce when
-            coming in contact with blocks */
-        this.slices = 0;
-        this.numberOfPreviousPositions = 50;
-        this.previousPositionIndex = 0;
-        this.reset();
-        this.img = new Image();
-        this.img.src = "res/ball.png";
-        this.img_slicing = new Image();
-        this.img_slicing.src = "res/ball_slicing.png";
-        this.previousPositions = new Array();
-        this.listen("destroyed").subscribe(({ instance: block }) => {
-            if (block.powerUpName === imports_1.Block.POWER_UPS.SLICE_BALL) {
-                this.slices = 100;
-            }
-        });
-    }
-    reset() {
-        this.x = 360;
-        this.y = 440;
-        this.xv = 0;
-        this.yv = 0;
-        this.r = 10;
-    }
-    update(player) {
-        this.x += this.xv;
-        this.y += this.yv;
-        this.addPosition(new PreviousPosition(this.x, this.y, !(this.slices < 60 && this.slices % 20 < 10)));
-        if (this.slices > 0) {
-            this.slices--;
-        }
-        // check for colisions with player paddle
-        if (this.x + this.r > player.x && this.x - this.r < player.x + player.width && this.y + this.r > player.y && this.y - this.r < player.y + player.height) {
-            Sound.play(Sound.blip);
-            this.yv = -this.yv;
-            this.y = player.y - this.r;
-            this.xv += ((this.x - player.x - player.width / 2) / 100) * 5;
-            if (this.xv > this.maxXv)
-                this.xv = this.maxXv;
-            if (this.xv < -this.maxXv)
-                this.xv = -this.maxXv;
-            return;
-        }
-        // check for colisions with window edges
-        if (this.x > imports_1.GameInstance.SIZE.w - this.r) {
-            Sound.play(Sound.bloop);
-            imports_1.GameInstance.level.camera.shake(this.xv * 2, 0);
-            this.xv = -this.xv;
-            this.x = imports_1.GameInstance.SIZE.w - this.r;
-        }
-        if (this.x < this.r) {
-            Sound.play(Sound.bloop);
-            imports_1.GameInstance.level.camera.shake(this.xv * 2, 0);
-            this.xv = -this.xv;
-            this.x = this.r;
-        }
-        if (this.y < this.r) {
-            Sound.play(Sound.bloop);
-            imports_1.GameInstance.level.camera.shake(0, this.yv * 2);
-            this.yv = -this.yv;
-            this.y = this.r;
-        }
-        if (this.y > imports_1.GameInstance.SIZE.h) {
-            if (imports_1.GameInstance.level.balls.length > 1) {
-                imports_1.GameInstance.level.balls.splice(imports_1.GameInstance.level.balls.indexOf(this), 1);
-                return;
-            }
-            Sound.play(Sound.die);
-            imports_1.GameInstance.level.die();
-            return;
-        }
-        // check for collisions with blocks
-        var c = this.collides();
-        if (c !== -1) {
-            Sound.play(Sound.bloop);
-            if (this.slices > 0) {
-                return;
-            }
-            if (this.x > imports_1.GameInstance.level.blocks[c].x + imports_1.Block.width) {
-                imports_1.GameInstance.level.camera.shake(this.xv, 0);
-                this.xv = Math.abs(this.xv);
-            }
-            if (this.x < imports_1.GameInstance.level.blocks[c].x) {
-                imports_1.GameInstance.level.camera.shake(this.xv, 0);
-                this.xv = -Math.abs(this.xv);
-            }
-            if (this.y > imports_1.GameInstance.level.blocks[c].y + imports_1.Block.height) {
-                imports_1.GameInstance.level.camera.shake(0, this.yv);
-                this.yv = Math.abs(this.yv);
-            }
-            if (this.y < imports_1.GameInstance.level.blocks[c].y) {
-                imports_1.GameInstance.level.camera.shake(0, this.yv);
-                this.yv = -Math.abs(this.yv);
-            }
-        }
-    }
-    addPosition(pos) {
-        if (this.previousPositions.length === this.numberOfPreviousPositions) {
-            if (this.previousPositions[this.previousPositionIndex] === pos) {
-                // Don't add the same position twice
-                return;
-            }
-            this.previousPositions[this.previousPositionIndex++] = pos;
-            this.previousPositionIndex %= this.numberOfPreviousPositions;
-        }
-        else {
-            if (this.previousPositions.length > 0 && this.previousPositions[this.previousPositions.length - 1].equals(pos)) {
-                // Don't add the same position twice
-                return;
-            }
-            this.previousPositions.push(pos);
-        }
-    }
-    collides() {
-        for (var i in imports_1.GameInstance.level.blocks) {
-            var b = imports_1.GameInstance.level.blocks[i];
-            if (b.color === 0)
-                continue;
-            if (this.x + this.r > b.x && this.x - this.r < b.x + imports_1.Block.width && this.y + this.r > b.y && this.y - this.r < b.y + imports_1.Block.height) {
-                imports_1.GameInstance.level.blocks[i].destroy(this);
-                return parseInt(i);
-            }
-        }
-        return -1;
-    }
-    shoot() {
-        imports_1.GameInstance.level.ballstill = false;
-        this.yv = -7;
-        do {
-            this.xv = Math.floor(Math.random() * 10) - 5;
-        } while (this.xv >= -1 && this.xv <= 1);
-    }
-    render() {
-        // Render ball trail
-        for (var i = this.previousPositionIndex - 1; i > this.previousPositionIndex - this.previousPositions.length; i--) {
-            var value = i + (this.previousPositions.length - this.previousPositionIndex) + 1;
-            imports_1.GameInstance.context.globalAlpha = (value / this.previousPositions.length) / 4;
-            var index = i;
-            if (index < 0) {
-                index += this.previousPositions.length;
-            }
-            var pos = this.previousPositions[index];
-            var x = pos.x - this.r + imports_1.GameInstance.level.camera.xo;
-            var y = pos.y - this.r + imports_1.GameInstance.level.camera.yo;
-            if (this.previousPositions[index].green) {
-                imports_1.GameInstance.context.drawImage(this.img_slicing, x, y);
-            }
-            else {
-                imports_1.GameInstance.context.drawImage(this.img, x, y);
-            }
-        }
-        imports_1.GameInstance.context.globalAlpha = 1.0;
-        var x = this.x - this.r + imports_1.GameInstance.level.camera.xo;
-        var y = this.y - this.r + imports_1.GameInstance.level.camera.yo;
-        if (this.slices < 60 && this.slices % 20 < 10) { // blinking effect when slicing effect is about to wear off
-            imports_1.GameInstance.context.drawImage(this.img, x, y);
-        }
-        else {
-            imports_1.GameInstance.context.drawImage(this.img_slicing, x, y);
-        }
-    }
-}
-exports.Ball = Ball;
-class Mouse {
-    static update(event) {
-        var px = Mouse.x, py = Mouse.y;
-        Mouse.x = event.clientX - imports_1.GameInstance.canvasClientRect.left;
-        Mouse.y = event.clientY - imports_1.GameInstance.canvasClientRect.top;
-        if (imports_1.GameInstance.level && !imports_1.GameInstance.level.player.usingMouseInput && !imports_1.GameInstance.paused && (Mouse.x != px || Mouse.y != py)) {
-            imports_1.GameInstance.level.player.usingMouseInput = true;
-        }
-    }
-    static down(event) {
-        if (event.button === 1 || event.which === 1)
-            Mouse.ldown = true;
-        else if (event.button === 3 || event.which === 3)
-            Mouse.rdown = true;
-    }
-    static up(event) {
-        if (event.button === 1 || event.which === 1)
-            Mouse.ldown = false;
-        else if (event.button === 3 || event.which === 3)
-            Mouse.rdown = false;
-    }
-}
-exports.Mouse = Mouse;
-Mouse.x = 0;
-Mouse.y = 0;
-Mouse.ldown = false;
-Mouse.rdown = false;
-window['Mouse'] = Mouse;
+exports.PreviousPosition = PreviousPosition;
+window['Mouse'] = imports_1.Mouse;
 class Sound {
     static init() {
         Sound.blip = imports_1.UTILS.getHtmlElementById('blipSound');
@@ -30725,140 +30990,14 @@ class Sound {
 exports.Sound = Sound;
 Sound.muted = false;
 Sound.volume = 0.5;
-class ParticleGenerator {
-    constructor(x, y, color) {
-        this.particles = new Array();
-        var size = new Size();
-        size.w = size.h = 6;
-        for (var i = 0; i < 25; ++i) {
-            this.particles.push(new Particle(this, PARTICLE_TYPE.SQUARE, size, color, x, y, Math.random() * 10 - 5, Math.random() * 10 - 5, 0, 0.5, 45));
-        }
-    }
-    remove(particle) {
-        this.particles.splice(this.particles.indexOf(particle));
-    }
-    update() {
-        for (var p in this.particles) {
-            this.particles[p].update();
-        }
-    }
-    render() {
-        for (var p in this.particles) {
-            this.particles[p].render();
-        }
-    }
-}
-exports.ParticleGenerator = ParticleGenerator;
-var PARTICLE_TYPE;
-(function (PARTICLE_TYPE) {
-    PARTICLE_TYPE[PARTICLE_TYPE["CIRCLE"] = 0] = "CIRCLE";
-    PARTICLE_TYPE[PARTICLE_TYPE["SQUARE"] = 1] = "SQUARE";
-})(PARTICLE_TYPE || (PARTICLE_TYPE = {}));
-class Size {
-}
-class Color {
-    constructor(r, g, b) {
-        this.r = r || 0;
-        this.g = g || 0;
-        this.b = b || 0;
-    }
-    static convert(c) {
-        switch (c) {
-            case 1:
-                return new Color(158, 158, 158);
-            case 2:
-                return new Color(172, 0, 0);
-            case 3:
-                return new Color(172, 105, 0);
-            case 4:
-                return new Color(182, 176, 0);
-            case 5:
-                return new Color(52, 172, 0);
-            case 6:
-                return new Color(0, 172, 170);
-            case 7:
-                return new Color(0, 103, 182);
-            case 8:
-                return new Color(68, 0, 172);
-            case 9:
-                return new Color(180, 0, 182);
-            default:
-                return new Color(0, 0, 0);
-        }
-    }
-}
-exports.Color = Color;
-class Particle {
-    constructor(generator, type, size, color, x, y, xv, yv, xa, ya, life) {
-        this.generator = generator;
-        this.type = type;
-        this.size = size;
-        this.color = color;
-        this.x = x;
-        this.y = y;
-        this.xv = xv;
-        this.yv = yv;
-        this.xa = xa;
-        this.ya = ya;
-        this.life = life;
-        this.startingLife = life;
-    }
-    update() {
-        this.life--;
-        if (this.life < 0) {
-            this.generator.remove(this);
-            return;
-        }
-        this.xv += this.xa;
-        this.yv += this.ya;
-        this.x += this.xv;
-        this.y += this.yv;
-    }
-    render() {
-        var x = this.x + imports_1.GameInstance.level.camera.xo;
-        var y = this.y + imports_1.GameInstance.level.camera.yo;
-        imports_1.GameInstance.context.fillStyle = "rgba(" + this.color.r + ", " + this.color.g + ", " + this.color.b + ", " + (this.life / this.startingLife) + ")";
-        if (this.type === PARTICLE_TYPE.SQUARE) {
-            imports_1.GameInstance.context.fillRect(x, y, this.size.w, this.size.h);
-        }
-        else if (this.type === PARTICLE_TYPE.CIRCLE) {
-            imports_1.GameInstance.context.arc(x, y, this.size.r, 0, 0);
-        }
-    }
-}
-class Keyboard {
-    static keychange(event, down) {
-        var keycode = event.keyCode ? event.keyCode : event.which;
-        Keyboard.keysdown[keycode] = down;
-        if (down && keycode === Keyboard.KEYS.ESC) {
-            imports_1.GameInstance.togglePause();
-            if (imports_1.GameInstance.level.ballstill)
-                imports_1.GameInstance.paused = false;
-        }
-        if (keycode === Keyboard.KEYS.A || keycode === Keyboard.KEYS.D || keycode === Keyboard.KEYS.LEFT || keycode === Keyboard.KEYS.RIGHT) {
-            imports_1.GameInstance.paused = false;
-            imports_1.GameInstance.level.player.usingMouseInput = false;
-        }
-        if (keycode === Keyboard.KEYS.SPACE) {
-            if (imports_1.GameInstance.level.ballstill) {
-                imports_1.GameInstance.level.balls[0].shoot();
-            }
-        }
-    }
-}
-exports.Keyboard = Keyboard;
-Keyboard.KEYS = {
-    BACKSPACE: 8, TAB: 9, RETURN: 13, ESC: 27, SPACE: 32, PAGEUP: 33, PAGEDOWN: 34, END: 35, HOME: 36, LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, INSERT: 45, DELETE: 46, ZERO: 48, ONE: 49, TWO: 50, THREE: 51, FOUR: 52, FIVE: 53, SIX: 54, SEVEN: 55, EIGHT: 56, NINE: 57, A: 65, B: 66, C: 67, D: 68, E: 69, F: 70, G: 71, H: 72, I: 73, J: 74, K: 75, L: 76, M: 77, N: 78, O: 79, P: 80, Q: 81, R: 82, S: 83, T: 84, U: 85, V: 86, W: 87, X: 88, Y: 89, Z: 90, TILDE: 192, SHIFT: 999
-};
-Keyboard.keysdown = [];
 function keydown(event) {
-    Keyboard.keychange(event, true);
+    imports_1.Keyboard.keychange(event, true);
     // Prevent the page from scrolling down on space press
-    if (event.keyCode === Keyboard.KEYS.SPACE)
+    if (event.keyCode === imports_1.Keyboard.KEYS.SPACE)
         return false;
 }
 function keyup(event) {
-    Keyboard.keychange(event, false);
+    imports_1.Keyboard.keychange(event, false);
 }
 window.onkeydown = keydown;
 window.onkeyup = keyup;
@@ -30874,12 +31013,10 @@ function toggleFooter(which) {
         }
     }
 }
+window['Mouse'] = imports_1.Mouse;
 window.onblur = function () {
     imports_1.GameInstance.paused = true;
 };
-// window.onfocus = function() {
-//     Game.paused = false;
-// }
 window.onresize = function () {
     imports_1.GameInstance.canvasClientRect = imports_1.GameInstance.canvas.getBoundingClientRect();
 };
@@ -30937,6 +31074,15 @@ var UTILS;
     }
     UTILS.getHtmlElementById = getHtmlElementById;
 })(UTILS = exports.UTILS || (exports.UTILS = {}));
+function generateImageElement(config) {
+    if (config.src) {
+        const image = new Image();
+        image.src = config.src;
+        return image;
+    }
+    return null;
+}
+exports.generateImageElement = generateImageElement;
 
 
 /***/ })

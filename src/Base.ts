@@ -1,11 +1,11 @@
-import { UTILS } from "./imports";
+import { UTILS } from "./utils";
 
 const subject = new UTILS.RXJS.Subject<{
 	name: any;
 	instance: any
 }>();
 
-export abstract class Base<TEvents = any> {
+export abstract class Base<TEvents> {
 	public EVENTS: TEvents;
 
 	// public abstract destroy(): void;

@@ -1,6 +1,13 @@
 import { Mouse, Keyboard, GameInstance, Block, Base } from './imports';
 import { UTILS } from './utils';
-export class Paddle extends Base<any> {
+import { GameEngine } from './engine';
+export class Paddle extends Base<any> implements GameEngine.Collider.IRectangle{
+    collider = {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0
+    }
 
     x: number;
     y: number;
@@ -28,32 +35,31 @@ export class Paddle extends Base<any> {
             }
         });
 
-        this.shape.graphics.beginFill("blue").drawRect(0,0, this.width, this.height);
+        this.shape.graphics.beginFill("blue").drawRect(0,0, this.collider.width, this.collider.height);
         GameInstance.stage.addChild(this.shape);
     }
 
     reset() {
-        this.x = 270;
-        this.y = 450;
-        this.width = 180;
-        this.height = 25;
+        this.collider.x = 270;
+        this.collider.y = 450;
+        this.collider.width = 180;
+        this.collider.height = 25;
         this.maxv = 25;
         this.biggerTimer = 0;
-
-        this.shape.x = this.x;
-        this.shape.y = this.y;
+        this.shape.x = this.collider.x;
+        this.shape.y = this.collider.y;
     }
 
     update() {
         this.biggerTimer--;
         if (this.biggerTimer > 0) {
             if (this.biggerTimer < 100) {
-                this.width = 180 + this.biggerTimer;
+                this.collider.width = 180 + this.biggerTimer;
             } else {
-                this.width = 280;
+                this.collider.width = 280;
             }
         } else {
-            this.width = 180;
+            this.collider.width = 180;
         }
 
         if (GameInstance.level.ballstill && Mouse.ldown) {
@@ -64,23 +70,23 @@ export class Paddle extends Base<any> {
 
         var left = !!(Keyboard.keysdown[Keyboard.KEYS.A] || Keyboard.keysdown[Keyboard.KEYS.LEFT]);
         var right = !!(Keyboard.keysdown[Keyboard.KEYS.D] || Keyboard.keysdown[Keyboard.KEYS.RIGHT]);
-        var destx = this.x;
+        var destx = this.collider.x;
         var amount = 0;
 
         if (this.usingMouseInput) {
-            destx = Math.min(Math.max(Mouse.x - this.width / 2, 0), GameInstance.SIZE.w - this.width);
+            destx = Math.min(Math.max(Mouse.x - this.collider.width / 2, 0), GameInstance.SIZE.w - this.collider.width);
         } else {
             if (left) {
                 destx = 0;
             } else if (right) {
-                destx = GameInstance.canvas.width - this.width;
+                destx = GameInstance.canvas.width - this.collider.width;
             }
         }
-        amount = Math.min(Math.abs(this.x - destx), this.maxv);
+        amount = Math.min(Math.abs(this.collider.x - destx), this.maxv);
 
-        this.x += destx > this.x ? amount : -amount;
-        this.shape.x = this.x + GameInstance.level.camera.xo;
-        this.shape.y = this.y + GameInstance.level.camera.yo;
+        this.collider.x += destx > this.collider.x ? amount : -amount;
+        this.shape.x = this.collider.x + GameInstance.level.camera.xo;
+        this.shape.y = this.collider.y + GameInstance.level.camera.yo;
     }
 
     render() {

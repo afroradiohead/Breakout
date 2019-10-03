@@ -1,7 +1,7 @@
-import { UTILS } from "../../utils";
+import { UTILS } from "../utils";
 
 
-export namespace GameEvent {
+export namespace Event {
 	export const subject = new UTILS.RXJS.Subject<{
 		name: any;
 		instance: any

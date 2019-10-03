@@ -1,5 +1,5 @@
 import { Block, Color, UTILS, Camera, Base, Paddle, GameInstance, Ball, ParticleGenerator, Mouse, Keyboard, Sound} from './imports';
-import { GameEvent } from './engine/annotations/GameEvent';
+import { Event } from './engine/Event';
 
 export class Level extends Base<any>{
     
@@ -34,13 +34,13 @@ export class Level extends Base<any>{
         this.reset();
     }
 
-    @GameEvent.ListenTo<Block>("destroyed")
+    @Event.ListenTo<Block>("destroyed")
     private onDestroy_Block(block: Block){
         switch(block.powerUpName){
             case Block.POWER_UPS.BOMB:
                 Sound.play(Sound.boom);
-                const x = (block.x - this.xo) / 100;
-                const y = (block.y - this.yo) / 35;
+                const x = (block.collider.x - this.xo) / 100;
+                const y = (block.collider.y - this.yo) / 35;
                 block.powerUpName = Block.POWER_UPS.NONE;
 
                 for (var yy = Math.max(y - 1, 0); yy <= Math.min(y + 1, Level.height - 1); yy++) {

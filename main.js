@@ -68234,14 +68234,14 @@ const Base_1 = __webpack_require__(/*! ./Base */ "./src/Base.ts");
 const main_1 = __webpack_require__(/*! ./main */ "./src/main.ts");
 const Block_1 = __webpack_require__(/*! ./Block */ "./src/Block.ts");
 const utils_1 = __webpack_require__(/*! ./utils */ "./src/utils.ts");
+const engine_1 = __webpack_require__(/*! ./engine */ "./src/engine/index.ts");
 class Ball extends Base_1.Base {
     constructor() {
         super();
-        this.boundingBox = {
+        this.collider = {
             x: 0,
             y: 0,
-            height: 0,
-            width: 0
+            r: 0
         };
         this.maxXv = 8;
         /** How many ticks are left in the green "slicing" powerup
@@ -68263,32 +68263,32 @@ class Ball extends Base_1.Base {
                 this.slices = 100;
             }
         });
-        this.shape.graphics.beginFill("red").drawCircle(0, 0, this.r);
+        this.shape.graphics.beginFill("red").drawCircle(0, 0, this.collider.r);
         this.shape.shadow = new utils_1.UTILS.CREATEJS.Shadow("red", 0, 0, 15);
         Game_1.GameInstance.stage.addChild(this.shape);
     }
     reset() {
-        this.boundingBox.x = 360;
-        this.boundingBox.y = 440;
+        this.collider.x = 360;
+        this.collider.y = 440;
+        this.collider.r = 10;
         this.xv = 0;
         this.yv = 0;
-        this.r = 10;
     }
     destroy() {
     }
     update(player) {
-        this.boundingBox.x += this.xv;
-        this.boundingBox.y += this.yv;
-        this.addPosition(new main_1.PreviousPosition(this.boundingBox.x, this.boundingBox.y, !(this.slices < 60 && this.slices % 20 < 10)));
+        this.collider.x += this.xv;
+        this.collider.y += this.yv;
+        this.addPosition(new main_1.PreviousPosition(this.collider.x, this.collider.y, !(this.slices < 60 && this.slices % 20 < 10)));
         if (this.slices > 0) {
             this.slices--;
         }
         // check for colisions with player paddle
-        if (this.boundingBox.x + this.r > player.x && this.boundingBox.x - this.r < player.x + player.width && this.boundingBox.y + this.r > player.y && this.boundingBox.y - this.r < player.y + player.height) {
+        if (engine_1.GameEngine.Collider.checkCollision(player, this)) {
             main_1.Sound.play(main_1.Sound.blip);
             this.yv = -this.yv;
-            this.boundingBox.y = player.y - this.r;
-            this.xv += ((this.boundingBox.x - player.x - player.width / 2) / 100) * 5;
+            this.collider.y = player.collider.y - this.collider.r;
+            this.xv += ((this.collider.x - player.collider.x - player.collider.width / 2) / 100) * 5;
             if (this.xv > this.maxXv)
                 this.xv = this.maxXv;
             if (this.xv < -this.maxXv)
@@ -68296,25 +68296,25 @@ class Ball extends Base_1.Base {
             return;
         }
         // check for colisions with window edges
-        if (this.boundingBox.x > Game_1.GameInstance.SIZE.w - this.r) {
+        if (this.collider.x > Game_1.GameInstance.SIZE.w - this.collider.r) {
             main_1.Sound.play(main_1.Sound.bloop);
             Game_1.GameInstance.level.camera.shake(this.xv * 2, 0);
             this.xv = -this.xv;
-            this.boundingBox.x = Game_1.GameInstance.SIZE.w - this.r;
+            this.collider.x = Game_1.GameInstance.SIZE.w - this.collider.r;
         }
-        if (this.boundingBox.x < this.r) {
+        if (this.collider.x < this.collider.r) {
             main_1.Sound.play(main_1.Sound.bloop);
             Game_1.GameInstance.level.camera.shake(this.xv * 2, 0);
             this.xv = -this.xv;
-            this.boundingBox.x = this.r;
+            this.collider.x = this.collider.r;
         }
-        if (this.boundingBox.y < this.r) {
+        if (this.collider.y < this.collider.r) {
             main_1.Sound.play(main_1.Sound.bloop);
             Game_1.GameInstance.level.camera.shake(0, this.yv * 2);
             this.yv = -this.yv;
-            this.boundingBox.y = this.r;
+            this.collider.y = this.collider.r;
         }
-        if (this.boundingBox.y > Game_1.GameInstance.SIZE.h) {
+        if (this.collider.y > Game_1.GameInstance.SIZE.h) {
             Game_1.GameInstance.stage.removeChild(this.shape);
             if (Game_1.GameInstance.level.balls.length > 1) {
                 Game_1.GameInstance.level.balls.splice(Game_1.GameInstance.level.balls.indexOf(this), 1);
@@ -68325,32 +68325,33 @@ class Ball extends Base_1.Base {
             return;
         }
         // check for collisions with blocks
-        const block = this.collides();
+        const block = Game_1.GameInstance.level.blocks
+            .find(block => !block.destroyingBall && engine_1.GameEngine.Collider.checkCollision(block, this));
         if (block) {
             block.destroy(this);
             this.speed *= 1.0000005;
             if (this.slices > 0) {
                 return;
             }
-            if (this.boundingBox.x > block.x + block.width) {
+            if (this.collider.x > block.collider.x + block.collider.width) {
                 Game_1.GameInstance.level.camera.shake(this.xv, 0);
                 this.xv = Math.abs(this.xv) * this.speed;
             }
-            if (this.boundingBox.x < block.x) {
+            if (this.collider.x < block.collider.x) {
                 Game_1.GameInstance.level.camera.shake(this.xv, 0);
                 this.xv = -Math.abs(this.xv) * this.speed;
             }
-            if (this.boundingBox.y > block.y + block.height) {
+            if (this.collider.y > block.collider.y + block.collider.height) {
                 Game_1.GameInstance.level.camera.shake(0, this.yv);
                 this.yv = Math.abs(this.yv) * this.speed;
             }
-            if (this.boundingBox.y < block.y) {
+            if (this.collider.y < block.collider.y) {
                 Game_1.GameInstance.level.camera.shake(0, this.yv);
                 this.yv = -Math.abs(this.yv) * this.speed;
             }
         }
-        this.shape.x = this.boundingBox.x;
-        this.shape.y = this.boundingBox.y;
+        this.shape.x = this.collider.x;
+        this.shape.y = this.collider.y;
         this.shape.shadow.offsetX = -this.xv;
         this.shape.shadow.offsetY = -this.yv;
     }
@@ -68371,15 +68372,6 @@ class Ball extends Base_1.Base {
             this.previousPositions.push(pos);
         }
     }
-    collides() {
-        return Game_1.GameInstance.level.blocks.find(block => {
-            return !block.destroyingBall
-                && this.boundingBox.x + this.r > block.x
-                && this.boundingBox.x - this.r < block.x + block.width
-                && this.boundingBox.y + this.r > block.y
-                && this.boundingBox.y - this.r < block.y + block.height;
-        });
-    }
     shoot() {
         Game_1.GameInstance.level.ballstill = false;
         this.yv = -10 * this.speed;
@@ -68397,8 +68389,8 @@ class Ball extends Base_1.Base {
         //         index += this.previousPositions.length;
         //     }
         //     var pos = this.previousPositions[index];
-        //     var x = pos.x - this.r + GameInstance.level.camera.xo;
-        //     var y = pos.y - this.r + GameInstance.level.camera.yo;
+        //     var x = pos.x - this.collider.r + GameInstance.level.camera.xo;
+        //     var y = pos.y - this.collider.r + GameInstance.level.camera.yo;
         //     if (this.previousPositions[index].green) {
         //         GameInstance.context.drawImage(this.img_slicing, x, y);
         //     } else {
@@ -68406,8 +68398,8 @@ class Ball extends Base_1.Base {
         //     }
         // }
         // GameInstance.context.globalAlpha = 1.0;
-        // var x = this.boundingBox.x - this.r + GameInstance.level.camera.xo;
-        // var y = this.boundingBox.y - this.r + GameInstance.level.camera.yo;
+        // var x = this.collider.x - this.collider.r + GameInstance.level.camera.xo;
+        // var y = this.collider.y - this.collider.r + GameInstance.level.camera.yo;
         // if (this.slices < 60 && this.slices % 20 < 10) { // blinking effect when slicing effect is about to wear off
         //     GameInstance.context.drawImage(this.img, x, y);
         // } else {
@@ -68431,8 +68423,8 @@ exports.Ball = Ball;
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const utils_1 = __webpack_require__(/*! ./utils */ "./src/utils.ts");
-const GameEvent_1 = __webpack_require__(/*! ./engine/annotations/GameEvent */ "./src/engine/annotations/GameEvent.ts");
-const subject = GameEvent_1.GameEvent.subject;
+const Event_1 = __webpack_require__(/*! ./engine/Event */ "./src/engine/Event.ts");
+const subject = Event_1.Event.subject;
 class Base {
     emit(name) {
         subject.next({
@@ -68478,27 +68470,29 @@ class Block extends Base_1.Base {
     constructor(config) {
         super();
         this.config = config;
-        this.boundingBox = {
+        this.collider = {
             x: 0,
             y: 0,
-            height: 0,
+            height: 20,
             width: 0
         };
         this.shape = new imports_1.UTILS.CREATEJS.Shape();
         this.powerUpName = Block.POWER_UPS.NONE;
+        this.game.stage.addChild(this.shape);
         const randomPowerUpSeed = Math.floor(Math.random() * 24);
         const powerUpCount = Object.keys(Block.POWER_UPS).length;
-        this.boundingBox = {
-            x: config.x,
-            y: config.y,
-            width: config.width,
-            height: this.height
-        };
+        this.collider.x = config.x;
+        this.collider.y = config.y;
+        this.collider.width = config.width;
         if (randomPowerUpSeed < powerUpCount - 1) {
             this.powerUpName = Block.POWER_UPS[imports_1.UTILS.LODASH.sample(Object.keys(Block.POWER_UPS))];
         }
-        this.shape.graphics.beginFill(`rgb(${this.config.color.r}, ${this.config.color.g}, ${this.config.color.b})`).drawRect(this.boundingBox.x, this.boundingBox.y, this.boundingBox.width, this.boundingBox.height);
-        this.game.stage.addChild(this.shape);
+        this.shape.graphics.beginFill(`rgb(${this.config.color.r}, ${this.config.color.g}, ${this.config.color.b})`);
+        const powerUpConfig = Block.POWER_UP_CONFIG_BY_NAME[this.powerUpName];
+        if (powerUpConfig) {
+            this.shape.graphics.beginBitmapFill(powerUpConfig.image);
+        }
+        this.shape.graphics.drawRect(this.collider.x, this.collider.y, this.collider.width, this.collider.height);
     }
     get game() {
         return this.config.game;
@@ -68515,12 +68509,9 @@ class Block extends Base_1.Base {
     get width() {
         return this.config.width;
     }
-    get height() {
-        return Block.height;
-    }
     destroy(ball) {
         this.destroyingBall = ball;
-        this.game.level.particleGenerators.push(new imports_1.ParticleGenerator(this.boundingBox.x + this.boundingBox.width / 2, this.boundingBox.y, this.color));
+        this.game.level.particleGenerators.push(new imports_1.ParticleGenerator(this.collider.x + this.collider.width / 2, this.collider.y, this.color));
         this.emit("destroyed");
         main_1.Sound.play(main_1.Sound.bloop);
         this.game.stage.removeChild(this.shape);
@@ -68529,13 +68520,12 @@ class Block extends Base_1.Base {
         return __awaiter(this, void 0, void 0, function* () {
             const powerUpConfig = Block.POWER_UP_CONFIG_BY_NAME[this.powerUpName];
             if (powerUpConfig) {
-                this.game.context.drawImage(powerUpConfig.image, this.boundingBox.x + this.boundingBox.width / 2 - 7 + this.game.level.camera.xo, this.boundingBox.y + 3 + this.game.level.camera.yo);
+                this.game.context.drawImage(powerUpConfig.image, this.collider.x + this.collider.width / 2 - 7 + this.game.level.camera.xo, this.collider.y + 3 + this.game.level.camera.yo);
             }
         });
     }
 }
 exports.Block = Block;
-Block.height = 20;
 (function (Block) {
     let POWER_UPS;
     (function (POWER_UPS) {
@@ -68846,6 +68836,12 @@ const utils_1 = __webpack_require__(/*! ./utils */ "./src/utils.ts");
 class Paddle extends imports_1.Base {
     constructor() {
         super();
+        this.collider = {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0
+        };
         this.biggerTimer = 0;
         this.shape = new utils_1.UTILS.CREATEJS.Shape();
         this.reset();
@@ -68857,31 +68853,31 @@ class Paddle extends imports_1.Base {
                 this.biggerTimer = 300;
             }
         });
-        this.shape.graphics.beginFill("blue").drawRect(0, 0, this.width, this.height);
+        this.shape.graphics.beginFill("blue").drawRect(0, 0, this.collider.width, this.collider.height);
         imports_1.GameInstance.stage.addChild(this.shape);
     }
     reset() {
-        this.x = 270;
-        this.y = 450;
-        this.width = 180;
-        this.height = 25;
+        this.collider.x = 270;
+        this.collider.y = 450;
+        this.collider.width = 180;
+        this.collider.height = 25;
         this.maxv = 25;
         this.biggerTimer = 0;
-        this.shape.x = this.x;
-        this.shape.y = this.y;
+        this.shape.x = this.collider.x;
+        this.shape.y = this.collider.y;
     }
     update() {
         this.biggerTimer--;
         if (this.biggerTimer > 0) {
             if (this.biggerTimer < 100) {
-                this.width = 180 + this.biggerTimer;
+                this.collider.width = 180 + this.biggerTimer;
             }
             else {
-                this.width = 280;
+                this.collider.width = 280;
             }
         }
         else {
-            this.width = 180;
+            this.collider.width = 180;
         }
         if (imports_1.GameInstance.level.ballstill && imports_1.Mouse.ldown) {
             imports_1.GameInstance.level.balls[0].shoot();
@@ -68891,23 +68887,23 @@ class Paddle extends imports_1.Base {
             return;
         var left = !!(imports_1.Keyboard.keysdown[imports_1.Keyboard.KEYS.A] || imports_1.Keyboard.keysdown[imports_1.Keyboard.KEYS.LEFT]);
         var right = !!(imports_1.Keyboard.keysdown[imports_1.Keyboard.KEYS.D] || imports_1.Keyboard.keysdown[imports_1.Keyboard.KEYS.RIGHT]);
-        var destx = this.x;
+        var destx = this.collider.x;
         var amount = 0;
         if (this.usingMouseInput) {
-            destx = Math.min(Math.max(imports_1.Mouse.x - this.width / 2, 0), imports_1.GameInstance.SIZE.w - this.width);
+            destx = Math.min(Math.max(imports_1.Mouse.x - this.collider.width / 2, 0), imports_1.GameInstance.SIZE.w - this.collider.width);
         }
         else {
             if (left) {
                 destx = 0;
             }
             else if (right) {
-                destx = imports_1.GameInstance.canvas.width - this.width;
+                destx = imports_1.GameInstance.canvas.width - this.collider.width;
             }
         }
-        amount = Math.min(Math.abs(this.x - destx), this.maxv);
-        this.x += destx > this.x ? amount : -amount;
-        this.shape.x = this.x + imports_1.GameInstance.level.camera.xo;
-        this.shape.y = this.y + imports_1.GameInstance.level.camera.yo;
+        amount = Math.min(Math.abs(this.collider.x - destx), this.maxv);
+        this.collider.x += destx > this.collider.x ? amount : -amount;
+        this.shape.x = this.collider.x + imports_1.GameInstance.level.camera.xo;
+        this.shape.y = this.collider.y + imports_1.GameInstance.level.camera.yo;
     }
     render() {
     }
@@ -69027,30 +69023,75 @@ exports.Size = Size;
 
 /***/ }),
 
-/***/ "./src/engine/annotations/GameEvent.ts":
-/*!*********************************************!*\
-  !*** ./src/engine/annotations/GameEvent.ts ***!
-  \*********************************************/
+/***/ "./src/engine/Collider.ts":
+/*!********************************!*\
+  !*** ./src/engine/Collider.ts ***!
+  \********************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-const utils_1 = __webpack_require__(/*! ../../utils */ "./src/utils.ts");
-var GameEvent;
-(function (GameEvent) {
-    GameEvent.subject = new utils_1.UTILS.RXJS.Subject();
+var Collider;
+(function (Collider) {
+    function checkCollision(shape1, shape2) {
+        return shape2.collider.x + shape2.collider.r > shape1.collider.x
+            && shape2.collider.x - shape2.collider.r < shape1.collider.x + shape1.collider.width
+            && shape2.collider.y + shape2.collider.r > shape1.collider.y
+            && shape2.collider.y - shape2.collider.r < shape1.collider.y + shape1.collider.height;
+    }
+    Collider.checkCollision = checkCollision;
+})(Collider = exports.Collider || (exports.Collider = {}));
+
+
+/***/ }),
+
+/***/ "./src/engine/Event.ts":
+/*!*****************************!*\
+  !*** ./src/engine/Event.ts ***!
+  \*****************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const utils_1 = __webpack_require__(/*! ../utils */ "./src/utils.ts");
+var Event;
+(function (Event) {
+    Event.subject = new utils_1.UTILS.RXJS.Subject();
     function ListenTo(name) {
         return function (target, propertyKey, descriptor) {
-            GameEvent.subject.pipe(utils_1.UTILS.RXJS.filter(event => event.name === name)).subscribe((e) => {
+            Event.subject.pipe(utils_1.UTILS.RXJS.filter(event => event.name === name)).subscribe((e) => {
                 descriptor.value(e.instance);
             });
             return descriptor;
         };
     }
-    GameEvent.ListenTo = ListenTo;
-})(GameEvent = exports.GameEvent || (exports.GameEvent = {}));
+    Event.ListenTo = ListenTo;
+})(Event = exports.Event || (exports.Event = {}));
+
+
+/***/ }),
+
+/***/ "./src/engine/index.ts":
+/*!*****************************!*\
+  !*** ./src/engine/index.ts ***!
+  \*****************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const Event_1 = __webpack_require__(/*! ./Event */ "./src/engine/Event.ts");
+const Collider_1 = __webpack_require__(/*! ./Collider */ "./src/engine/Collider.ts");
+var GameEngine;
+(function (GameEngine) {
+    GameEngine.Event = Event_1.Event;
+    GameEngine.Collider = Collider_1.Collider;
+})(GameEngine = exports.GameEngine || (exports.GameEngine = {}));
 
 
 /***/ }),
@@ -69085,7 +69126,7 @@ __export(__webpack_require__(/*! ./Size */ "./src/Size.ts"));
 __export(__webpack_require__(/*! ./Particle */ "./src/Particle.ts"));
 __export(__webpack_require__(/*! ./ParticleGenerator */ "./src/ParticleGenerator.ts"));
 __export(__webpack_require__(/*! ./PARTICLE_TYPE */ "./src/PARTICLE_TYPE.ts"));
-__export(__webpack_require__(/*! ./engine/annotations/GameEvent */ "./src/engine/annotations/GameEvent.ts"));
+__export(__webpack_require__(/*! ./engine */ "./src/engine/index.ts"));
 
 
 /***/ }),
@@ -69107,7 +69148,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const imports_1 = __webpack_require__(/*! ./imports */ "./src/imports.ts");
-const GameEvent_1 = __webpack_require__(/*! ./engine/annotations/GameEvent */ "./src/engine/annotations/GameEvent.ts");
+const Event_1 = __webpack_require__(/*! ./engine/Event */ "./src/engine/Event.ts");
 class Level extends imports_1.Base {
     constructor() {
         super();
@@ -69129,8 +69170,8 @@ class Level extends imports_1.Base {
         switch (block.powerUpName) {
             case imports_1.Block.POWER_UPS.BOMB:
                 imports_1.Sound.play(imports_1.Sound.boom);
-                const x = (block.x - this.xo) / 100;
-                const y = (block.y - this.yo) / 35;
+                const x = (block.collider.x - this.xo) / 100;
+                const y = (block.collider.y - this.yo) / 35;
                 block.powerUpName = imports_1.Block.POWER_UPS.NONE;
                 for (var yy = Math.max(y - 1, 0); yy <= Math.min(y + 1, Level.height - 1); yy++) {
                     for (var xx = Math.max(x - 1, 0); xx <= Math.min(x + 1, Level.width - 1); xx++) {
@@ -69343,7 +69384,7 @@ Level.width = 20; // how many blocks wide the field is
 Level.height = 5; // how many blocks tall the field is
 Level.gamestates = { playing: -1, lost: 0, won: 1 };
 __decorate([
-    GameEvent_1.GameEvent.ListenTo("destroyed")
+    Event_1.Event.ListenTo("destroyed")
 ], Level.prototype, "onDestroy_Block", null);
 exports.Level = Level;
 function drawHorizontallyCenteredRectangle(y, w, h) {

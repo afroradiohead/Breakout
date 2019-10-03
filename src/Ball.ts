@@ -4,13 +4,13 @@ import { PreviousPosition, Sound } from "./main";
 import { Block } from "./Block";
 import { Paddle } from './Paddle';
 import { UTILS } from './utils';
+import { GameEngine } from './engine';
 
-export class Ball extends Base<any> implements Base.IBoundingBox{
-    boundingBox = {
+export class Ball extends Base<any> implements GameEngine.Collider.ICircle{
+    collider = {
         x: 0,
         y: 0,
-        height: 0,
-        width: 0
+        r: 0
     }
 
     xv: number;
@@ -49,17 +49,17 @@ export class Ball extends Base<any> implements Base.IBoundingBox{
             }
         });
 
-        this.shape.graphics.beginFill("red").drawCircle(0, 0, this.r);
+        this.shape.graphics.beginFill("red").drawCircle(0, 0, this.collider.r);
         this.shape.shadow = new UTILS.CREATEJS.Shadow("red", 0, 0, 15);
         GameInstance.stage.addChild(this.shape);
     }
 
     reset() {
-        this.boundingBox.x = 360;
-        this.boundingBox.y = 440;
+        this.collider.x = 360;
+        this.collider.y = 440;
+        this.collider.r = 10;
         this.xv = 0;
         this.yv = 0;
-        this.r = 10;
     }
 
     destroy(){
@@ -67,46 +67,46 @@ export class Ball extends Base<any> implements Base.IBoundingBox{
     }
 
     update(player: Paddle) {
-        this.boundingBox.x += this.xv;
-        this.boundingBox.y += this.yv;
+        this.collider.x += this.xv;
+        this.collider.y += this.yv;
 
-        this.addPosition(new PreviousPosition(this.boundingBox.x, this.boundingBox.y, !(this.slices < 60 && this.slices % 20 < 10)));
+        this.addPosition(new PreviousPosition(this.collider.x, this.collider.y, !(this.slices < 60 && this.slices % 20 < 10)));
 
         if (this.slices > 0) {
             this.slices--;
         }
 
         // check for colisions with player paddle
-        if (this.boundingBox.x + this.r > player.x && this.boundingBox.x - this.r < player.x + player.width && this.boundingBox.y + this.r > player.y && this.boundingBox.y - this.r < player.y + player.height) {
+        if (GameEngine.Collider.checkCollision(player, this)) {
             Sound.play(Sound.blip);
             this.yv = -this.yv;
-            this.boundingBox.y = player.y - this.r;
-            this.xv += ((this.boundingBox.x - player.x - player.width / 2) / 100) * 5;
+            this.collider.y = player.collider.y - this.collider.r;
+            this.xv += ((this.collider.x - player.collider.x - player.collider.width / 2) / 100) * 5;
             if (this.xv > this.maxXv) this.xv = this.maxXv;
             if (this.xv < -this.maxXv) this.xv = -this.maxXv;
             return;
         }
 
         // check for colisions with window edges
-        if (this.boundingBox.x > GameInstance.SIZE.w - this.r) {
+        if (this.collider.x > GameInstance.SIZE.w - this.collider.r) {
             Sound.play(Sound.bloop);
             GameInstance.level.camera.shake(this.xv * 2, 0);
             this.xv = -this.xv;
-            this.boundingBox.x = GameInstance.SIZE.w - this.r;
+            this.collider.x = GameInstance.SIZE.w - this.collider.r;
         }
-        if (this.boundingBox.x < this.r) {
+        if (this.collider.x < this.collider.r) {
             Sound.play(Sound.bloop);
             GameInstance.level.camera.shake(this.xv * 2, 0);
             this.xv = -this.xv;
-            this.boundingBox.x = this.r;
+            this.collider.x = this.collider.r;
         }
-        if (this.boundingBox.y < this.r) {
+        if (this.collider.y < this.collider.r) {
             Sound.play(Sound.bloop);
             GameInstance.level.camera.shake(0, this.yv * 2);
             this.yv = -this.yv;
-            this.boundingBox.y = this.r;
+            this.collider.y = this.collider.r;
         }
-        if (this.boundingBox.y > GameInstance.SIZE.h) {
+        if (this.collider.y > GameInstance.SIZE.h) {
             GameInstance.stage.removeChild(this.shape);
             if (GameInstance.level.balls.length > 1) {
                 GameInstance.level.balls.splice(GameInstance.level.balls.indexOf(this), 1);
@@ -119,7 +119,8 @@ export class Ball extends Base<any> implements Base.IBoundingBox{
         }
 
         // check for collisions with blocks
-        const block = this.collides();
+        const block = GameInstance.level.blocks
+            .find(block => !block.destroyingBall && GameEngine.Collider.checkCollision(block, this))
         if (block) {
             block.destroy(this);
             this.speed *= 1.0000005;
@@ -127,27 +128,26 @@ export class Ball extends Base<any> implements Base.IBoundingBox{
                 return;
             }
 
-            if (this.boundingBox.x > block.x + block.width) {
+            if (this.collider.x > block.collider.x + block.collider.width) {
                 GameInstance.level.camera.shake(this.xv, 0);
                 this.xv = Math.abs(this.xv) * this.speed;
             }
-            if (this.boundingBox.x < block.x) {
+            if (this.collider.x < block.collider.x) {
                 GameInstance.level.camera.shake(this.xv, 0);
                 this.xv = -Math.abs(this.xv) * this.speed;
             }
-            if (this.boundingBox.y > block.y + block.height) {
+            if (this.collider.y > block.collider.y + block.collider.height) {
                 GameInstance.level.camera.shake(0, this.yv);
                 this.yv = Math.abs(this.yv) * this.speed;
             }
-            if (this.boundingBox.y < block.y) {
+            if (this.collider.y < block.collider.y) {
                 GameInstance.level.camera.shake(0, this.yv);
                 this.yv = -Math.abs(this.yv) * this.speed;
             }
         }
 
-        this.shape.x = this.boundingBox.x;
-        this.shape.y = this.boundingBox.y;
-
+        this.shape.x = this.collider.x;
+        this.shape.y = this.collider.y;
         this.shape.shadow.offsetX = -this.xv;
         this.shape.shadow.offsetY = -this.yv;
     }
@@ -169,15 +169,6 @@ export class Ball extends Base<any> implements Base.IBoundingBox{
         }
     }
 
-    collides(): Block {
-        return GameInstance.level.blocks.find(block => {
-            return !block.destroyingBall
-                && this.boundingBox.x + this.r > block.x 
-                && this.boundingBox.x - this.r < block.x + block.width 
-                && this.boundingBox.y + this.r > block.y 
-                && this.boundingBox.y - this.r < block.y + block.height;
-        })
-    }
     speed = 1;
     shoot() { // shoot off the player's paddle
         GameInstance.level.ballstill = false;
@@ -197,8 +188,8 @@ export class Ball extends Base<any> implements Base.IBoundingBox{
         //         index += this.previousPositions.length;
         //     }
         //     var pos = this.previousPositions[index];
-        //     var x = pos.x - this.r + GameInstance.level.camera.xo;
-        //     var y = pos.y - this.r + GameInstance.level.camera.yo;
+        //     var x = pos.x - this.collider.r + GameInstance.level.camera.xo;
+        //     var y = pos.y - this.collider.r + GameInstance.level.camera.yo;
 
         //     if (this.previousPositions[index].green) {
         //         GameInstance.context.drawImage(this.img_slicing, x, y);
@@ -208,8 +199,8 @@ export class Ball extends Base<any> implements Base.IBoundingBox{
         // }
         // GameInstance.context.globalAlpha = 1.0;
 
-        // var x = this.boundingBox.x - this.r + GameInstance.level.camera.xo;
-        // var y = this.boundingBox.y - this.r + GameInstance.level.camera.yo;
+        // var x = this.collider.x - this.collider.r + GameInstance.level.camera.xo;
+        // var y = this.collider.y - this.collider.r + GameInstance.level.camera.yo;
         // if (this.slices < 60 && this.slices % 20 < 10) { // blinking effect when slicing effect is about to wear off
         //     GameInstance.context.drawImage(this.img, x, y);
         // } else {

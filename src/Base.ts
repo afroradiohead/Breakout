@@ -1,7 +1,7 @@
 import { UTILS } from "./utils";
-import { GameEvent } from "./engine/annotations/GameEvent";
+import { Event } from "./engine/Event";
 
-const subject = GameEvent.subject;
+const subject = Event.subject;
 
 
 

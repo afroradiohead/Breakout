@@ -15,4 +15,4 @@ export * from "./Size";
 export * from "./Particle";
 export * from "./ParticleGenerator";
 export * from "./PARTICLE_TYPE";
-export * from "./engine/annotations/GameEvent"
+export * from "./engine"

@@ -1,21 +1,20 @@
 import { Sound } from './main';
 import {UTILS, Game, Ball, ParticleGenerator, Color} from "./imports"
 import {Base } from "./Base";
-import { GameEvent } from './engine/annotations/GameEvent';
+import { Event } from './engine/Event';
+import { GameEngine } from './engine';
 
 function generateImageSrc(type: "powerups" | "blocks", name: string): HTMLImageElement{
 	return UTILS.generateImageElement({src: `res/${type}/${name}.png`})
 }
 
-export class Block extends Base<"destroyed"> implements Base.IBoundingBox{
-	boundingBox = {
+export class Block extends Base<"destroyed"> implements GameEngine.Collider.IRectangle{
+	collider = {
         x: 0,
         y: 0,
-        height: 0,
+        height: 20,
         width: 0
     }
-	static height: number = 20;
-
 	get game(): Game{
 		return this.config.game;
 	}
@@ -35,9 +34,6 @@ export class Block extends Base<"destroyed"> implements Base.IBoundingBox{
 		return this.config.width;
 	}
 
-	public get height(): number {
-		return Block.height;
-	}
 	shape = new UTILS.CREATEJS.Shape()
 	destroyingBall: Ball;
 	powerUpName: Block.POWER_UPS = Block.POWER_UPS.NONE;
@@ -45,26 +41,27 @@ export class Block extends Base<"destroyed"> implements Base.IBoundingBox{
 
     constructor(public config: Block.IConfig) {
 		super();
+		this.game.stage.addChild(this.shape);
 		const randomPowerUpSeed = Math.floor(Math.random() * 24);
 		const powerUpCount = Object.keys(Block.POWER_UPS).length;
-		this.boundingBox = {
-			x: config.x,
-			y: config.y,
-			width: config.width,
-			height: this.height
-		}
-		
+		this.collider.x = config.x;
+		this.collider.y = config.y;
+		this.collider.width = config.width;
+
 		if(randomPowerUpSeed < powerUpCount - 1){
 			this.powerUpName = Block.POWER_UPS[UTILS.LODASH.sample(Object.keys(Block.POWER_UPS))];
 		}
-		this.shape.graphics.beginFill(`rgb(${this.config.color.r}, ${this.config.color.g}, ${this.config.color.b})`).drawRect(this.boundingBox.x, this.boundingBox.y, this.boundingBox.width, this.boundingBox.height);
-		
-		this.game.stage.addChild(this.shape);
+		this.shape.graphics.beginFill(`rgb(${this.config.color.r}, ${this.config.color.g}, ${this.config.color.b})`);
+		const powerUpConfig = Block.POWER_UP_CONFIG_BY_NAME[this.powerUpName];
+        if (powerUpConfig) {
+			this.shape.graphics.beginBitmapFill(powerUpConfig.image);
+		}
+		this.shape.graphics.drawRect(this.collider.x, this.collider.y, this.collider.width, this.collider.height);
     }
 
     destroy(ball: Ball) {
 		this.destroyingBall = ball;
-		this.game.level.particleGenerators.push(new ParticleGenerator(this.boundingBox.x + this.boundingBox.width / 2, this.boundingBox.y, this.color));
+		this.game.level.particleGenerators.push(new ParticleGenerator(this.collider.x + this.collider.width / 2, this.collider.y, this.color));
 		this.emit("destroyed");
 		Sound.play(Sound.bloop);
 		this.game.stage.removeChild(this.shape);
@@ -73,7 +70,7 @@ export class Block extends Base<"destroyed"> implements Base.IBoundingBox{
     async render() {
 		const powerUpConfig = Block.POWER_UP_CONFIG_BY_NAME[this.powerUpName];
         if (powerUpConfig) {
-            this.game.context.drawImage(powerUpConfig.image, this.boundingBox.x + this.boundingBox.width / 2 - 7 + this.game.level.camera.xo, this.boundingBox.y + 3 + this.game.level.camera.yo);
+            this.game.context.drawImage(powerUpConfig.image, this.collider.x + this.collider.width / 2 - 7 + this.game.level.camera.xo, this.collider.y + 3 + this.game.level.camera.yo);
         }
     }
 }

@@ -6,7 +6,7 @@ import { Paddle } from './Paddle';
 import { UTILS } from './utils';
 import { GameEngine } from './engine';
 
-export class Ball extends Base<any> implements GameEngine.Collider.ICircle{
+export class Ball extends Base<any> implements GameEngine.GameObject, GameEngine.Collider.ICircle{
     collider = {
         x: 0,
         y: 0,
@@ -43,6 +43,7 @@ export class Ball extends Base<any> implements GameEngine.Collider.ICircle{
 
         this.previousPositions = new Array<PreviousPosition>();
 
+        GameEngine.Event.listen<Block>("destroyed")
         this.listen<Block>("destroyed").subscribe(({instance: block}) => {
             if(block.powerUpName === Block.POWER_UPS.SLICE_BALL){
                 this.slices = 100;
@@ -52,6 +53,7 @@ export class Ball extends Base<any> implements GameEngine.Collider.ICircle{
         this.shape.graphics.beginFill("red").drawCircle(0, 0, this.collider.r);
         this.shape.shadow = new UTILS.CREATEJS.Shadow("red", 0, 0, 15);
         GameInstance.stage.addChild(this.shape);
+        GameEngine.GameObject.register(this);
     }
 
     reset() {
@@ -66,7 +68,8 @@ export class Ball extends Base<any> implements GameEngine.Collider.ICircle{
 
     }
 
-    update(player: Paddle) {
+    onTick(){
+        const player = GameInstance.level.player;
         this.collider.x += this.xv;
         this.collider.y += this.yv;
 
@@ -108,6 +111,7 @@ export class Ball extends Base<any> implements GameEngine.Collider.ICircle{
         }
         if (this.collider.y > GameInstance.SIZE.h) {
             GameInstance.stage.removeChild(this.shape);
+            GameEngine.GameObject.unregister(this);
             if (GameInstance.level.balls.length > 1) {
                 GameInstance.level.balls.splice(GameInstance.level.balls.indexOf(this), 1);
                 

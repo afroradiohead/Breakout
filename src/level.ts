@@ -1,7 +1,7 @@
-import { Block, Color, UTILS, Camera, Base, Paddle, GameInstance, Ball, ParticleGenerator, Mouse, Keyboard, Sound} from './imports';
-import { Event } from './engine/Event';
+import { Block, Color, UTILS, Camera, Paddle, GameInstance, Ball, ParticleGenerator, Mouse, Keyboard, Sound} from './imports';
+import { GameEngine } from './engine';
 
-export class Level extends Base<any>{
+export class Level implements GameEngine.GameObject{
     
     blocks: Block[];
 
@@ -25,45 +25,44 @@ export class Level extends Base<any>{
     heartImg: HTMLImageElement = UTILS.generateImageElement({src: "res/heart.png"});
     heartScale = 1.0; // Used to draw hearts extra large when first acquired
 
-    particleGenerators: ParticleGenerator[] = [];
+    public particleGenerators: ParticleGenerator[] = [];
     
     constructor() {
-        super();
         this.camera.shake(0, -2000); // Drop tiles in from top of screen
-
         this.reset();
+
+        GameEngine.Event.listen<Block>("destroyed").subscribe((block: Block) => {
+            
+            switch(block.powerUpName){
+                case Block.POWER_UPS.BOMB:
+                    Sound.play(Sound.boom);
+                    const x = (block.collider.x - this.xo) / 100;
+                    const y = (block.collider.y - this.yo) / 35;
+    
+                    for (var yy = Math.max(y - 1, 0); yy <= Math.min(y + 1, Level.height - 1); yy++) {
+                        for (var xx = Math.max(x - 1, 0); xx <= Math.min(x + 1, Level.width - 1); xx++) {
+                            if (this.blocks[xx + yy * Level.width].color === 0) continue;
+                            if (xx === x && yy === y) continue;
+                            this.blocks[xx + yy * Level.width].destroy(block.destroyingBall);
+                        }
+                    } 
+                    break;
+                case Block.POWER_UPS.EXTRA_BALL: 
+                    const newBall = new Ball();
+                    this.balls.push(newBall);
+                    newBall.shoot();
+                    break;
+                case Block.POWER_UPS.EXTRA_LIFE: 
+                    this.deathcount--;
+                    this.heartScale = 3.0;
+                break;
+            }
+        });
+
+        GameEngine.GameObject.register(this);
     }
 
-    @Event.ListenTo<Block>("destroyed")
-    private onDestroy_Block(block: Block){
-        switch(block.powerUpName){
-            case Block.POWER_UPS.BOMB:
-                Sound.play(Sound.boom);
-                const x = (block.collider.x - this.xo) / 100;
-                const y = (block.collider.y - this.yo) / 35;
-                block.powerUpName = Block.POWER_UPS.NONE;
-
-                for (var yy = Math.max(y - 1, 0); yy <= Math.min(y + 1, Level.height - 1); yy++) {
-                    for (var xx = Math.max(x - 1, 0); xx <= Math.min(x + 1, Level.width - 1); xx++) {
-                        if (this.blocks[xx + yy * Level.width].color === 0) continue;
-                        if (xx === x && yy === y) continue;
-                        this.blocks[xx + yy * Level.width].destroy(block.destroyingBall);
-                    }
-                } 
-                break;
-            case Block.POWER_UPS.EXTRA_BALL: 
-                const newBall = new Ball();
-                this.balls.push(newBall);
-                newBall.shoot();
-                break;
-            case Block.POWER_UPS.EXTRA_LIFE: 
-                this.deathcount--;
-                this.heartScale = 3.0;
-            break;
-        }
-    }
-
-    update() {
+    onTick(){
         if (GameInstance.paused) {
             if (Mouse.ldown) {
                 GameInstance.paused = false;
@@ -73,7 +72,6 @@ export class Level extends Base<any>{
 
         if (this.gamestate === Level.gamestates.playing) {
             this.player.update();
-            this.balls.forEach(ball => ball.update(this.player))
             // if (this.checkBoardWon()) {
             //     this.deathcount--;
             //     this.gamestate = Level.gamestates.won;
@@ -86,7 +84,6 @@ export class Level extends Base<any>{
         }
         
         this.particleGenerators.forEach(p => p.update());
-        this.camera.update();
     }
 
     checkBoardWon(): boolean {
@@ -139,14 +136,14 @@ export class Level extends Base<any>{
             type %= 5;
         }
 
-        var x = i % Level.width;
-        var y = Math.floor(i / Level.width);
+        const x = i % Level.width;
+        const y = Math.floor(i / Level.width);
         switch (type) {
             case 0:
             {
                 // // DISTANCE from (0,0)
-                var dist = Math.sqrt(x*x + y*y);
-                var maxDist = Math.sqrt(Level.width * Level.width + Level.height * Level.height);
+                const dist = Math.sqrt(x*x + y*y);
+                const maxDist = Math.sqrt(Level.width * Level.width + Level.height * Level.height);
                 return Math.floor(dist / maxDist * 9) + 2; // add two so we don't have any greys
             }
             case 1:

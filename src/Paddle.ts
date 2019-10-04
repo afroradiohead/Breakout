@@ -9,10 +9,6 @@ export class Paddle extends Base<any> implements GameEngine.Collider.IRectangle{
         height: 0
     }
 
-    x: number;
-    y: number;
-    width: number;
-    height: number;
     maxv: number;
     biggerTimer: number = 0;
     img: HTMLImageElement;

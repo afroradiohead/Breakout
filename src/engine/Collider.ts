@@ -18,6 +18,7 @@ export namespace Collider {
 
 	export type TShape = ICircle | IRectangle;
 
+	//@todo make it shape agnostic
 	export function checkCollision(shape1: IRectangle, shape2: ICircle): boolean{
 		return shape2.collider.x + shape2.collider.r > shape1.collider.x 
 			&& shape2.collider.x - shape2.collider.r < shape1.collider.x + shape1.collider.width 

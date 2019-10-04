@@ -1,6 +1,7 @@
 import { Block, Base } from "./imports";
+import { GameEngine } from "./engine";
 
-export class Camera extends Base<any>{
+export class Camera extends Base<any> implements GameEngine.GameObject{
     xo: number = 0;
     yo: number = 0;
 
@@ -14,9 +15,10 @@ export class Camera extends Base<any>{
                 this.shake(block.destroyingBall.xv * 4, block.destroyingBall.yv * 4)
             }
         })
-    }
 
-    update() {
+        GameEngine.GameObject.register(this);
+    }
+    onTick() {
         this.shakeX *= 0.90;
         this.shakeY *= 0.90;
 

@@ -1,14 +1,19 @@
+import { GameInstance } from './Game';
 import { Sound } from './main';
-import {UTILS, Game, Ball, ParticleGenerator, Color} from "./imports"
+import {UTILS, Game, Ball, Color, ParticleGenerator} from "./imports"
 import {Base } from "./Base";
-import { Event } from './engine/Event';
 import { GameEngine } from './engine';
 
 function generateImageSrc(type: "powerups" | "blocks", name: string): HTMLImageElement{
 	return UTILS.generateImageElement({src: `res/${type}/${name}.png`})
 }
 
-export class Block extends Base<"destroyed"> implements GameEngine.Collider.IRectangle{
+
+
+
+
+export class Block extends Base<any>
+	implements GameEngine.GameObject, GameEngine.Collider.IRectangle, GameEngine.Event.IObject<"destroyed">{
 	collider = {
         x: 0,
         y: 0,
@@ -19,19 +24,8 @@ export class Block extends Base<"destroyed"> implements GameEngine.Collider.IRec
 		return this.config.game;
 	}
 	
-	public get x(): number {
-		return this.config.x;
-	}
-
-	public get y(): number {
-		return this.config.y
-	}
 	public get color(): any {
 		return this.config.color;
-	}
-
-	public get width(): number {
-		return this.config.width;
 	}
 
 	shape = new UTILS.CREATEJS.Shape()
@@ -56,23 +50,27 @@ export class Block extends Base<"destroyed"> implements GameEngine.Collider.IRec
         if (powerUpConfig) {
 			this.shape.graphics.beginBitmapFill(powerUpConfig.image);
 		}
-		this.shape.graphics.drawRect(this.collider.x, this.collider.y, this.collider.width, this.collider.height);
-    }
+		this.shape.graphics.drawRect(0,0, this.collider.width, this.collider.height);
+		
+		GameEngine.GameObject.register(this);
+	}
+	
+	onTick(){
+		this.collider.x = this.config.x + GameInstance.level.camera.xo;
+		this.collider.y = this.config.y + GameInstance.level.camera.yo;
+		this.shape.x = this.collider.x;
+		this.shape.y = this.collider.y;
+	}
 
     destroy(ball: Ball) {
 		this.destroyingBall = ball;
-		this.game.level.particleGenerators.push(new ParticleGenerator(this.collider.x + this.collider.width / 2, this.collider.y, this.color));
-		this.emit("destroyed");
+		this.game.level.particleGenerators.push(new ParticleGenerator(this.collider.x, this.collider.y, this.color));
+
+		GameEngine.Event.emit(this, "destroyed");
 		Sound.play(Sound.bloop);
 		this.game.stage.removeChild(this.shape);
-    }
-
-    async render() {
-		const powerUpConfig = Block.POWER_UP_CONFIG_BY_NAME[this.powerUpName];
-        if (powerUpConfig) {
-            this.game.context.drawImage(powerUpConfig.image, this.collider.x + this.collider.width / 2 - 7 + this.game.level.camera.xo, this.collider.y + 3 + this.game.level.camera.yo);
-        }
-    }
+		this.powerUpName = Block.POWER_UPS.NONE;
+	}
 }
 
 export namespace Block {

@@ -5,23 +5,31 @@ const size = new Size();
 size.w = size.h = 6;
 export class ParticleGenerator {
 	
-    particles: Particle[] = UTILS.LODASH.times(25, () => {
-		return new Particle(this, PARTICLE_TYPE.SQUARE, size, this.color, this.x, this.y, Math.random() * 10 - 5, Math.random() * 10 - 5, 0, 0.5, 45)
-	});
+    particles: Particle[] = [];
 
     constructor(public x: number, public y: number, public color: Color) {
-		
-    }
-
-    remove(particle: Particle) {
-        this.particles.splice(this.particles.indexOf(particle));
+		this.particles = UTILS.LODASH.times(25, () => {
+            return new Particle({
+                generator: this, 
+                type: PARTICLE_TYPE.SQUARE, 
+                size: size, 
+                color: color, 
+                x: this.x, 
+                y: this.y, 
+                xv: Math.random() * 10 - 5, 
+                yv: Math.random() * 10 - 5, 
+                xa: 0, 
+                ya: 0.5, 
+                life: 45
+            })
+        });
     }
 
     update() {
-        this.particles.forEach(p => p.update());
+ 
     }
 
     render() {
-        this.particles.forEach(p => p.render());
+        // this.particles.forEach(p => p.render());
     }
 }

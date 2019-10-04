@@ -17,20 +17,8 @@ export abstract class Base<TEvents> {
 	}
 
 	listen<T extends Base<TEvents>>(name: T['EVENTS']): UTILS.RXJS.Observable<{name: string; instance: T}> {
-		return subject.pipe(UTILS.RXJS.filter(event => event.name === name)) ;
+		return subject.pipe(UTILS.RXJSOperators.filter(event => event.name === name)) ;
 	}
 }
 
 
-export namespace Base {
-	
-	export interface IBoundingBox {
-		boundingBox: {
-			x: number;
-			y: number;
-			width: number;
-			height: number;
-			r?: number
-		}
-	}
-}

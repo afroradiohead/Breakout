@@ -75,7 +75,6 @@ export class Game {
 
         
         UTILS.CREATEJS.Ticker.addEventListener("tick", (e) => {
-            this.level.update();
             this.stage.update();
         });
     }
